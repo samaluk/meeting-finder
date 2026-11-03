@@ -8,7 +8,7 @@ const field = (
   type = "text",
 ) =>
   h.label(
-    [],
+    [h.Class("field")],
     [
       label,
       h.input([
@@ -23,19 +23,18 @@ export const rulesView = (model: Model, h: HtmlBuilder<Message>) =>
   h.section(
     [h.Class("rules card")],
     [
-      h.p([h.Class("eyebrow")], ["01 / SEARCH RULES"]),
-      h.h2([], ["When should we meet?"]),
+      h.div([h.Class("card-head")], [h.h2([], ["Search rules"])]),
       h.div(
         [h.Class("form-grid")],
         [
           field(h, "Start date", model.startDate, "startDate", "date"),
           field(h, "End date", model.endDate, "endDate", "date"),
           field(h, "Timezone", model.timeZone, "timeZone"),
-          field(h, "Duration", String(model.duration), "duration", "number"),
-          field(h, "Step", String(model.step), "step", "number"),
-          field(h, "Buffer", String(model.buffer), "buffer", "number"),
+          field(h, "Duration, min", String(model.duration), "duration", "number"),
+          field(h, "Step, min", String(model.step), "step", "number"),
+          field(h, "Buffer, min", String(model.buffer), "buffer", "number"),
           field(h, "Minimum attendance", String(model.minimum), "minimum", "number"),
-          field(h, "Options", String(model.maxResults), "maxResults", "number"),
+          field(h, "Max options", String(model.maxResults), "maxResults", "number"),
         ],
       ),
     ],

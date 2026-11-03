@@ -1,86 +1,129 @@
 import type { HtmlBuilder } from "foldkit/html";
 import { isLoading, Message, type Model } from "../model.js";
-import { attendanceLabel } from "../presentation.js";
-export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
-  h.section(
+import { attendanceLabel, sourceTypeLabel } from "../presentation.js";
+const fold = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+export const audienceView = (model: Model, h: HtmlBuilder<Message>) => {
+  const required = model.people.filter((person) => person.required).length;
+  return h.section(
     [h.Class("audience card")],
     [
-      h.p([h.Class("eyebrow")], ["02 / AUDIENCE"]),
-      h.h2([], ["Who is coming?"]),
       h.div(
-        [h.Class("source-box")],
+        [h.Class("card-head")],
         [
-          h.strong([], ["Add a source"]),
-          h.select(
+          h.h2([], ["Audience"]),
+          h.p(
+            [h.Class("meta")],
             [
-              h.AriaLabel("Source type"),
-              h.OnChange((value) => Message.ChangedSourceType({ value })),
+              `${model.people.length} ${model.people.length === 1 ? "person" : "people"} · ${required} required · ${model.people.length - required} optional`,
             ],
-            [
-              h.option([h.Value("person")], ["Person"]),
-              h.option([h.Value("emails")], ["Email list"]),
-              h.option([h.Value("chat_space")], ["Chat space"]),
-              h.option([h.Value("google_group")], ["Google Group"]),
-              h.option([h.Value("contact_group")], ["Contacts group"]),
-            ],
-          ),
-          h.input([
-            h.Placeholder("person, emails, space, group…"),
-            h.AriaLabel("Source reference"),
-            h.Value(model.sourceDraft),
-            h.OnInput((value) => Message.ChangedSourceDraft({ value })),
-          ]),
-          h.label(
-            [],
-            [
-              h.input([
-                h.Type("checkbox"),
-                h.Checked(model.sourceRequired),
-                h.OnChange(() => Message.ChangedSourceRequired({ value: !model.sourceRequired })),
-              ]),
-              "Required",
-            ],
-          ),
-          h.input([
-            h.Type("number"),
-            h.AriaLabel("Source weight"),
-            h.Value(String(model.sourceWeight)),
-            h.OnInput((value) => Message.ChangedSourceWeight({ value })),
-          ]),
-          h.button([h.Class("button secondary"), h.OnClick(Message.AddedSource())], ["Add"]),
-          h.div(
-            [h.Class("source-list")],
-            model.sources.map((source, index) =>
-              h.div(
-                [h.Class("source-chip")],
-                [
-                  h.span(
-                    [],
-                    [
-                      `${source.type}: ${source.ref} (${source.required === false ? "optional" : "required"}, w${source.weight ?? 1})`,
-                    ],
-                  ),
-                  h.button([h.OnClick(Message.RemovedSource({ index }))], ["Remove"]),
-                ],
-              ),
-            ),
           ),
         ],
       ),
-      h.button(
+      h.div(
+        [h.Class("source-box")],
         [
-          h.Class("button primary"),
-          h.OnClick(Message.ClickedResolve()),
-          h.Disabled(isLoading(model)),
+          h.h3([], ["Add a source"]),
+          h.div(
+            [h.Class("source-form")],
+            [
+              h.select(
+                [
+                  h.AriaLabel("Source type"),
+                  h.Value(model.sourceType),
+                  h.OnChange((value) => Message.ChangedSourceType({ value })),
+                ],
+                [
+                  h.option([h.Value("person")], ["Person"]),
+                  h.option([h.Value("emails")], ["Email list"]),
+                  h.option([h.Value("chat_space")], ["Chat space"]),
+                  h.option([h.Value("google_group")], ["Google Group"]),
+                  h.option([h.Value("contact_group")], ["Contacts group"]),
+                ],
+              ),
+              h.input([
+                h.Class("source-ref"),
+                h.Placeholder("Email, space or group"),
+                h.AriaLabel("Source reference"),
+                h.Value(model.sourceDraft),
+                h.OnInput((value) => Message.ChangedSourceDraft({ value })),
+              ]),
+              h.label(
+                [h.Class("check")],
+                [
+                  h.input([
+                    h.Type("checkbox"),
+                    h.Checked(model.sourceRequired),
+                    h.OnChange(() =>
+                      Message.ChangedSourceRequired({ value: !model.sourceRequired }),
+                    ),
+                  ]),
+                  "Required",
+                ],
+              ),
+              h.label(
+                [h.Class("inline-field")],
+                [
+                  "Weight",
+                  h.input([
+                    h.Type("number"),
+                    h.AriaLabel("Source weight"),
+                    h.Value(String(model.sourceWeight)),
+                    h.OnInput((value) => Message.ChangedSourceWeight({ value })),
+                  ]),
+                ],
+              ),
+              h.button([h.Class("button secondary"), h.OnClick(Message.AddedSource())], ["Add"]),
+            ],
+          ),
+          model.sources.length === 0
+            ? h.empty
+            : h.ul(
+                [h.Class("source-list")],
+                model.sources.map((source, index) =>
+                  h.li(
+                    [],
+                    [
+                      h.span([h.Class("source-type")], [sourceTypeLabel(source.type)]),
+                      h.span([h.Class("source-name")], [source.ref]),
+                      h.span(
+                        [h.Class("meta")],
+                        [
+                          `${source.required === false ? "Optional" : "Required"} · weight ${source.weight ?? 1}`,
+                        ],
+                      ),
+                      h.button(
+                        [
+                          h.Class("text-button"),
+                          h.AriaLabel(`Remove ${source.ref}`),
+                          h.OnClick(Message.RemovedSource({ index })),
+                        ],
+                        ["Remove"],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          h.button(
+            [
+              h.Class("button primary"),
+              h.OnClick(Message.ClickedResolve()),
+              h.Disabled(isLoading(model)),
+            ],
+            [isLoading(model) ? "Resolving…" : "Resolve audience"],
+          ),
         ],
-        [isLoading(model) ? "Resolving…" : "Resolve audience"],
       ),
       h.div(
         [h.Class("audience-tools")],
         [
           h.input([
             h.Type("search"),
-            h.Placeholder("Filter people"),
+            h.Placeholder("Filter"),
+            h.AriaLabel("Filter people"),
             h.Value(model.filter),
             h.OnInput((value) => Message.ChangedFilter({ value })),
           ]),
@@ -92,7 +135,7 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
             [h.Class("button ghost"), h.OnClick(Message.SetRequired({ required: false }))],
             ["All optional"],
           ),
-          h.button([h.Class("button ghost"), h.OnClick(Message.AddedPerson())], ["+ Add person"]),
+          h.button([h.Class("button ghost"), h.OnClick(Message.AddedPerson())], ["Add person"]),
         ],
       ),
       h.div(
@@ -100,52 +143,79 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
         model.people
           .map((person, index) => ({ person, index }))
           .filter(({ person }) =>
-            `${person.name ?? ""} ${person.id}`
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-              .toLowerCase()
-              .includes(
-                model.filter
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .toLowerCase(),
-              ),
+            fold(`${person.name ?? ""} ${person.id}`).includes(fold(model.filter)),
           )
           .map(({ person, index }) =>
             h.article(
               [h.Class("person")],
               [
                 h.div(
-                  [h.Class("person-main")],
+                  [h.Class("person-head")],
                   [
-                    h.strong([], [person.name ?? person.id]),
-                    h.small([], [person.id]),
-                    h.input([
-                      h.Value(person.id),
-                      h.AriaLabel("Person identity"),
-                      h.OnInput((value) => Message.ChangedPerson({ index, field: "id", value })),
-                    ]),
-                  ],
-                ),
-                h.label(
-                  [],
-                  [
-                    "Weight",
-                    h.input([
-                      h.Type("number"),
-                      h.AriaLabel("Participant weight"),
-                      h.Value(String(person.weight)),
-                      h.OnInput((value) =>
-                        Message.ChangedPerson({ index, field: "weight", value }),
-                      ),
-                    ]),
+                    h.label(
+                      [h.Class("check")],
+                      [
+                        h.input([
+                          h.Type("checkbox"),
+                          h.Checked(person.required),
+                          h.AriaLabel(`${person.name ?? person.id} is required`),
+                          h.OnChange(() =>
+                            Message.ChangedPerson({
+                              index,
+                              field: "required",
+                              value: String(!person.required),
+                            }),
+                          ),
+                        ]),
+                        h.span(
+                          [h.Class("person-name")],
+                          [person.name ?? (person.id || "New person")],
+                        ),
+                      ],
+                    ),
+                    h.span([h.Class("meta")], [person.required ? "Required" : "Optional"]),
+                    h.label(
+                      [h.Class("inline-field")],
+                      [
+                        "Weight",
+                        h.input([
+                          h.Type("number"),
+                          h.AriaLabel("Participant weight"),
+                          h.Value(String(person.weight)),
+                          h.OnInput((value) =>
+                            Message.ChangedPerson({ index, field: "weight", value }),
+                          ),
+                        ]),
+                      ],
+                    ),
+                    h.button(
+                      [
+                        h.Class("text-button"),
+                        h.AriaLabel(`Remove ${person.name ?? person.id}`),
+                        h.OnClick(Message.RemovedPerson({ index })),
+                      ],
+                      ["Remove"],
+                    ),
                   ],
                 ),
                 h.div(
-                  [h.Class("attendance-policy")],
+                  [h.Class("person-policy")],
                   [
                     h.label(
-                      [],
+                      [h.Class("field")],
+                      [
+                        "Identity",
+                        h.input([
+                          h.Value(person.id),
+                          h.AriaLabel("Person identity"),
+                          h.OnInput((value) =>
+                            Message.ChangedPerson({ index, field: "id", value }),
+                          ),
+                        ]),
+                      ],
+                    ),
+                    h.label(
+                      [h.Class("field")],
                       [
                         "Attendance",
                         h.select(
@@ -153,18 +223,14 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                             h.AriaLabel(`Attendance for ${person.name ?? person.id}`),
                             h.Value(person.attendanceRule.type),
                             h.OnChange((value) =>
-                              Message.ChangedAttendance({
-                                index,
-                                field: "type",
-                                value,
-                              }),
+                              Message.ChangedAttendance({ index, field: "type", value }),
                             ),
                           ],
                           [
                             h.option([h.Value("full")], ["Whole meeting"]),
                             h.option([h.Value("start")], ["At the start"]),
                             h.option([h.Value("end")], ["At the end"]),
-                            h.option([h.Value("percentage")], ["Percentage (continuous)"]),
+                            h.option([h.Value("percentage")], ["Percentage, continuous"]),
                           ],
                         ),
                       ],
@@ -172,11 +238,11 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                     person.attendanceRule.type === "full"
                       ? h.empty
                       : h.label(
-                          [],
+                          [h.Class("field amount")],
                           [
                             person.attendanceRule.type === "percentage"
                               ? "Minimum %"
-                              : "Minimum minutes",
+                              : "Minimum min",
                             h.input([
                               h.Type("number"),
                               h.Min("1"),
@@ -196,24 +262,22 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                                 ),
                               ),
                               h.OnInput((value) =>
-                                Message.ChangedAttendance({
-                                  index,
-                                  field: "amount",
-                                  value,
-                                }),
+                                Message.ChangedAttendance({ index, field: "amount", value }),
                               ),
                             ]),
                           ],
                         ),
-                    h.small([], [attendanceLabel(person.attendanceRule)]),
                   ],
                 ),
+                person.attendanceRule.type === "full"
+                  ? h.empty
+                  : h.p([h.Class("rule-summary")], [attendanceLabel(person.attendanceRule)]),
                 h.details(
-                  [],
+                  [h.Class("working-rules")],
                   [
                     h.summary([], ["Working rules"]),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
                         "Timezone",
                         h.input([
@@ -225,9 +289,9 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
-                        "Hours",
+                        "Day starts",
                         h.input([
                           h.Value(person.workingHours?.start ?? "09:00"),
                           h.OnInput((value) =>
@@ -241,9 +305,9 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
-                        "End",
+                        "Day ends",
                         h.input([
                           h.Value(person.workingHours?.end ?? "18:00"),
                           h.OnInput((value) =>
@@ -257,9 +321,9 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
-                        "Days",
+                        "Weekdays, 1–7",
                         h.input([
                           h.Value((person.workingHours?.days ?? [1, 2, 3, 4, 5]).join(",")),
                           h.OnInput((value) =>
@@ -273,9 +337,9 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
-                        "Break",
+                        "Break starts",
                         h.input([
                           h.Value(person.workingHours?.breakStart ?? ""),
                           h.OnInput((value) =>
@@ -289,9 +353,9 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
-                        "Break end",
+                        "Break ends",
                         h.input([
                           h.Value(person.workingHours?.breakEnd ?? ""),
                           h.OnInput((value) =>
@@ -305,7 +369,7 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                       ],
                     ),
                     h.label(
-                      [],
+                      [h.Class("field")],
                       [
                         "Calendars",
                         h.input([
@@ -322,24 +386,6 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
                     ),
                   ],
                 ),
-                h.label(
-                  [],
-                  [
-                    h.input([
-                      h.Type("checkbox"),
-                      h.Checked(person.required),
-                      h.OnChange(() =>
-                        Message.ChangedPerson({
-                          index,
-                          field: "required",
-                          value: String(!person.required),
-                        }),
-                      ),
-                    ]),
-                    "Required",
-                  ],
-                ),
-                h.button([h.OnClick(Message.RemovedPerson({ index }))], ["Remove"]),
               ],
             ),
           ),
@@ -347,28 +393,29 @@ export const audienceView = (model: Model, h: HtmlBuilder<Message>) =>
       h.div(
         [h.Class("snapshot-tools")],
         [
-          h.textarea([
-            h.Placeholder("Paste a participant snapshot JSON…"),
-            h.Value(model.snapshotDraft),
-            h.OnInput((value) => Message.ChangedSnapshot({ value })),
-          ]),
-          h.button(
-            [h.Class("button ghost"), h.OnClick(Message.ClickedImport())],
-            ["Import participants"],
+          h.label(
+            [h.Class("field")],
+            [
+              "Participant snapshot",
+              h.textarea([
+                h.Placeholder("Paste snapshot JSON"),
+                h.Value(model.snapshotDraft),
+                h.OnInput((value) => Message.ChangedSnapshot({ value })),
+              ]),
+            ],
           ),
-          h.button(
-            [h.Class("button ghost"), h.OnClick(Message.ClickedDownload())],
-            ["Download snapshot"],
+          h.div(
+            [h.Class("snapshot-actions")],
+            [
+              h.button([h.Class("button ghost"), h.OnClick(Message.ClickedImport())], ["Import"]),
+              h.button(
+                [h.Class("button ghost"), h.OnClick(Message.ClickedDownload())],
+                ["Download snapshot"],
+              ),
+            ],
           ),
-        ],
-      ),
-      h.div(
-        [h.Class("counts")],
-        [
-          h.span([], [`${model.people.length} people`]),
-          h.span([], [`${model.people.filter((person) => person.required).length} required`]),
-          h.span([], [`${model.people.filter((person) => !person.required).length} optional`]),
         ],
       ),
     ],
   );
+};

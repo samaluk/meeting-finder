@@ -11,9 +11,20 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
       h.header(
         [h.Class("topbar")],
         [
-          h.a([h.Href("/"), h.Class("brand")], ["meeting-finder"]),
+          h.a(
+            [h.Href("/"), h.Class("brand")],
+            [h.span([h.Class("mark"), h.AriaHidden(true)], ["m/f"]), "meeting-finder"],
+          ),
           h.button(
-            [h.Class("button ghost"), h.OnClick(Message.ChangedMode())],
+            [
+              h.Class(`mode ${model.mode}`),
+              h.AriaLabel(
+                model.mode === "demo"
+                  ? "Demo mode, simulated calendars. Switch mode"
+                  : "Live mode, Google calendars. Switch mode",
+              ),
+              h.OnClick(Message.ChangedMode()),
+            ],
             [model.mode === "demo" ? "Demo mode" : "Live mode"],
           ),
         ],
@@ -22,12 +33,25 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => ({
         [h.Class("shell")],
         [
           h.div(
-            [h.Class("hero")],
+            [h.Class("page-head")],
             [
-              h.h1([], ["Find a time people can actually make."]),
+              h.div(
+                [],
+                [
+                  h.h1([], ["Find a meeting time"]),
+                  h.p(
+                    [h.Class("page-lede")],
+                    [
+                      model.mode === "demo"
+                        ? "Simulated calendars. Nothing is read from Google"
+                        : "Reads free/busy through your gws login. Nothing is booked or sent",
+                    ],
+                  ),
+                ],
+              ),
               h.button(
                 [h.Class("button secondary"), h.OnClick(Message.ClickedExample())],
-                ["View example"],
+                ["Load example"],
               ),
             ],
           ),

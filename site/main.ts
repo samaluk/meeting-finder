@@ -30,7 +30,7 @@ people.innerHTML = demoPeople
   .map(
     (person, index) => `
   <article class="person-row" data-person="${index}">
-    <div class="person-policy"><div class="person-name"><label><input type="checkbox" data-required="${index}" aria-label="${person.name} is required" /><strong>${person.name}</strong></label><label class="weight"><span aria-hidden="true">×</span><span class="sr-only">${person.name}'s weight</span><input type="number" min="1" max="10" step="1" data-weight="${index}" value="${person.weight}" /></label></div><label class="rule-select"><span class="sr-only">${person.name}'s attendance rule</span><select data-rule="${index}">${rules.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label></div>
+    <div class="person-policy"><div class="person-name"><label><input type="checkbox" data-required="${index}" aria-label="${person.name} is required" /><strong>${person.name}</strong></label><label class="weight"><span aria-hidden="true">Weight</span><span class="sr-only">${person.name}'s weight</span><input type="number" min="1" max="10" step="1" data-weight="${index}" value="${person.weight}" /></label></div><label class="rule-select"><span class="sr-only">${person.name}'s attendance rule</span><select data-rule="${index}">${rules.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label></div>
     <div class="person-evidence"><p class="sr-only calendar-description"></p><div class="slots" aria-hidden="true">${Array.from({ length: 12 }, (_, slot) => `<span class="slot" data-slot="${slot}"></span>`).join("")}</div><p class="observation"></p></div>
   </article>`,
   )
@@ -59,11 +59,12 @@ const paint = () => {
     const evidence = row.querySelector<HTMLElement>(".observation")!;
     const satisfied = observation?.ruleSatisfied ?? false;
     evidence.dataset.satisfied = String(satisfied);
+    evidence.dataset.unknown = String(person.id === "finley@example.test");
     evidence.textContent = !observation
       ? "No interval satisfies a participant rule."
       : person.id === "finley@example.test"
-        ? "? Calendar unknown · never counted"
-        : `${satisfied ? "✓" : "✕"} ${satisfied ? "Rule met" : "Rule not met"} · longest free block ${Math.round(observation.longestAvailableMinutes)} min${observation.state === "busy" ? " · known conflict" : ""}`;
+        ? "Calendar unknown, never counted"
+        : `${satisfied ? "Rule met" : "Rule not met"} · longest free block ${Math.round(observation.longestAvailableMinutes)} min${observation.state === "busy" ? " · known conflict" : ""}`;
     const busy = demoBusy[person.id as keyof typeof demoBusy] ?? [];
     row.querySelector<HTMLElement>(".calendar-description")!.textContent =
       person.id === "finley@example.test"
@@ -94,11 +95,11 @@ const paint = () => {
     ? `
     <p class="score">${candidate.availableWeight}<span> / ${candidate.totalWeight}</span></p>
     <p class="coverage">${Math.round(candidate.score * 10) / 10}% weighted coverage</p>
-    <p class="decision" data-valid="${valid}">${valid ? "✓ A time that works" : "✕ Blocked alternative"}</p>
+    <p class="decision" data-valid="${valid}">${valid ? "A time that works" : "Blocked alternative"}</p>
     <dl><div><dt>Attendance rules met</dt><dd>${candidate.attendance} / ${participants.length}</dd></div><div><dt>Required conflicts</dt><dd>${candidate.requiredConflicts.length}</dd></div><div><dt>Calendar unknown</dt><dd>1</dd></div></dl>
   `
-    : '<p class="decision" data-valid="false">No matching intervals</p><p>Try adjusting who is required or an attendance rule.</p>';
-  candidates.innerHTML = `<p class="eyebrow">${valid ? "RANKED OPTIONS" : "REVIEW ONLY · BLOCKED"}</p>${options.map((option, index) => `<button data-candidate="${index}" aria-pressed="${index === selected}"><span>${time(option.start)}—${time(option.end)}</span><span>${Math.round(option.score)}% <span aria-hidden="true">↗</span></span></button>`).join("")}${candidate && !valid ? '<p class="blocked-note">Required conflicts: <span id="conflicts"></span>. This is not a valid proposal.</p>' : ""}`;
+    : '<p class="decision" data-valid="false">No matching intervals</p><p>Change who is required or an attendance rule</p>';
+  candidates.innerHTML = `<p class="eyebrow">${valid ? "Ranked options" : "Blocked, review only"}</p>${options.map((option, index) => `<button data-candidate="${index}" aria-pressed="${index === selected}"><span>${time(option.start)}–${time(option.end)}</span><span>${Math.round(option.score)}%</span></button>`).join("")}${candidate && !valid ? '<p class="blocked-note">Required conflicts: <span id="conflicts"></span>. This is not a valid proposal.</p>' : ""}`;
   if (focusedCandidate !== undefined)
     candidates
       .querySelector<HTMLButtonElement>(`[data-candidate="${focusedCandidate}"]`)
@@ -119,7 +120,7 @@ const refresh = async () => {
     paint();
   } catch {
     if (current === revision)
-      summary.textContent = "The simulated search could not run. Reset a scenario to try again.";
+      summary.textContent = "The simulated search could not run. Pick a scenario to try again.";
   }
 };
 const updateParticipant = (index: number, patch: Partial<ParticipantInput>) => {
@@ -177,10 +178,10 @@ element("copy-install").addEventListener("click", () => {
     .then(() => navigator.clipboard.writeText(element("install-commands").textContent ?? ""))
     .then(
       () => {
-        element("copy-status").textContent = "Commands copied.";
+        element("copy-status").textContent = "Commands copied";
       },
       () => {
-        element("copy-status").textContent = "Select the commands above to copy them manually.";
+        element("copy-status").textContent = "Select the commands above to copy them";
       },
     );
 });

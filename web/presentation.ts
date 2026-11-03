@@ -63,3 +63,36 @@ export const formatProposal = (
       .join(", ") || "None"
   }\nConflicts: ${candidate.requiredConflicts.join(", ") || "None"}\nTimezone: ${context.timeZone}\nSimulated: ${context.mode === "demo"}\nNo event, invitation, or message was sent.`;
 };
+
+const sourceTypeLabels = {
+  person: "Person",
+  emails: "Email list",
+  chat_space: "Chat space",
+  google_group: "Google Group",
+  contact_group: "Contacts group",
+} as const;
+export const sourceTypeLabel = (type: keyof typeof sourceTypeLabels): string =>
+  sourceTypeLabels[type];
+
+const formatPart = (value: string, timeZone: string, options: Intl.DateTimeFormatOptions) => {
+  try {
+    return new Intl.DateTimeFormat(undefined, { timeZone, ...options }).format(new Date(value));
+  } catch {
+    return value;
+  }
+};
+/** A compact interval for lists: the day once, then both clock times. */
+export const formatRange = (
+  start: string,
+  end: string,
+  timeZone: string,
+): { readonly day: string; readonly time: string } => {
+  const day = { weekday: "short", month: "short", day: "numeric" } as const;
+  const clock = { timeStyle: "short" } as const;
+  const startDay = formatPart(start, timeZone, day);
+  const endDay = formatPart(end, timeZone, day);
+  return {
+    day: startDay,
+    time: `${formatPart(start, timeZone, clock)} – ${startDay === endDay ? "" : `${endDay}, `}${formatPart(end, timeZone, clock)}`,
+  };
+};
