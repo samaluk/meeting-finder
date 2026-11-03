@@ -1,0 +1,38 @@
+amends "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.5.0/hk@2.5.0#/Builtins.pkl"
+
+steps {
+  ["format"] {
+    glob = List("*.json", ".fallow*.json", "*.md", "*.ts", ".github/**/*.yml", ".github/**/*.yaml", "src/**/*.ts", "src/**/*.md", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "web/**/*.html", "web/**/*.css", "docs/**/*.md", "docs/**/*.ts", "docs/**/*.html", "docs/**/*.css", "vite.config.ts")
+    check = "bunx --no-install oxfmt --check {{files}}"
+    fix = "bunx --no-install oxfmt --write {{files}}"
+  }
+  ["lint"] {
+    glob = List("*.json", "*.toml", "*.ts", "src/**/*.ts", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "docs/**/*.ts", "vite.config.ts")
+    check = "bunx --no-install oxlint {{files}}"
+  }
+  ["boundaries"] {
+    glob = List("*.json", ".fallow*.json", "*.toml", "*.ts", "bun.lock", "src/**/*.ts", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "web/**/*.html", "web/**/*.css")
+    check = "bun run lint:boundaries"
+  }
+  ["typecheck"] {
+    glob = List("*.json", "*.toml", "*.ts", "src/**/*.ts", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "docs/**/*.ts", "vite.config.ts")
+    check = "bun run typecheck"
+    exclusive = true
+  }
+  ["effect-diagnostics"] {
+    glob = List("*.json", "*.toml", "*.ts", "src/**/*.ts", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "docs/**/*.ts", "vite.config.ts")
+    check = "bun run effect:diagnostics"
+    exclusive = true
+  }
+  ["tests"] {
+    glob = List("*.json", "*.toml", "*.ts", "src/**/*.ts", "test/**/*.ts", "web/**/*.ts", "site/**/*.ts", "site/**/*.html", "site/**/*.css", "docs/**/*.ts", "vite.config.ts")
+    check = "bun run test"
+    exclusive = true
+  }
+  ["jactionlint"] {
+    glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+    batch = true
+    check = "jactionlint {{files}}"
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.38.1/schema.json",
+  "minimumVersion": "3.38.1",
+  "failOnParseError": true,
+  "rulePacks": [".fallow-policy.json"],
+  "rules": {
+    "boundary-violation": "error",
+    "circular-dependencies": "error",
+    "re-export-cycles": "error",
+    "package-cycles": "error",
+    "policy-violation": "error",
+    "unresolved-imports": "error"
+  },
+  "boundaries": {
+    "coverage": {
+      "requireAllFiles": true
+    },
+    "zones": [
+      {
+        "name": "domain",
+        "patterns": ["src/domain/**"]
+      },
+      {
+        "name": "values",
+        "patterns": ["src/errors.ts", "src/mode.ts"]
+      },
+      {
+        "name": "ports",
+        "patterns": ["src/providers.ts"]
+      },
+      {
+        "name": "application",
+        "patterns": ["src/audience.ts", "src/meeting-finder.ts", "src/request-decoding.ts"]
+      },
+      {
+        "name": "defaults",
+        "patterns": ["src/defaults.ts"]
+      },
+      {
+        "name": "search-rules",
+        "patterns": [
+          "src/search/interval.ts",
+          "src/search/attendance.ts",
+          "src/search/candidates.ts"
+        ]
+      },
+      {
+        "name": "search-internal",
+        "patterns": ["src/search/**"]
+      },
+      {
+        "name": "search",
+        "patterns": ["src/search.ts"]
+      },
+      {
+        "name": "gws-internal",
+        "patterns": ["src/adapters/gws/**"]
+      },
+      {
+        "name": "gws",
+        "patterns": ["src/adapters/gws.ts"]
+      },
+      {
+        "name": "providers",
+        "patterns": [
+          "src/adapters/demo.ts",
+          "src/adapters/gws-process.ts",
+          "src/provider-config.ts",
+          "src/adapters/gws-diagnostics.ts"
+        ]
+      },
+      {
+        "name": "streams",
+        "patterns": ["src/bounded-stream.ts"]
+      },
+      {
+        "name": "http-internal",
+        "patterns": ["src/http/**"]
+      },
+      {
+        "name": "http",
+        "patterns": ["src/http.ts"]
+      },
+      {
+        "name": "http-options",
+        "patterns": ["src/http-options.ts"]
+      },
+      {
+        "name": "cli-internal",
+        "patterns": ["src/cli/**"]
+      },
+      {
+        "name": "cli",
+        "patterns": ["src/cli.ts", "src/cli-output.ts"]
+      },
+      {
+        "name": "transport-contract",
+        "patterns": ["src/api.ts", "src/discovery.ts", "src/json-input.ts"]
+      },
+      {
+        "name": "composition",
+        "patterns": ["src/layers.ts", "src/observability.ts"]
+      },
+      {
+        "name": "runtime",
+        "patterns": ["src/main.ts"]
+      },
+      {
+        "name": "contracts",
+        "patterns": ["src/contracts.ts"]
+      },
+      {
+        "name": "browser-values",
+        "patterns": ["web/model.ts", "web/requests.ts", "web/presentation.ts"]
+      },
+      {
+        "name": "browser-update-internal",
+        "patterns": ["web/app/**"]
+      },
+      {
+        "name": "browser-update",
+        "patterns": ["web/app.ts"]
+      },
+      {
+        "name": "browser-commands",
+        "patterns": ["web/commands.ts"]
+      },
+      {
+        "name": "view-internal",
+        "patterns": ["web/view/**"]
+      },
+      {
+        "name": "view",
+        "patterns": ["web/view.ts"]
+      },
+      {
+        "name": "browser-entry",
+        "patterns": ["web/entry.ts", "web/index.html", "web/style.css"]
+      },
+      {
+        "name": "tests",
+        "patterns": ["test/**"]
+      },
+      {
+        "name": "tooling",
+        "patterns": ["vite.config.ts", "vitest.config.ts", "vite.site.config.ts"]
+      },
+      {
+        "name": "site-simulation",
+        "patterns": ["site/simulation.ts"]
+      },
+      {
+        "name": "site",
+        "patterns": ["site/**"]
+      }
+    ],
+    "rules": [
+      {
+        "from": "domain",
+        "allow": []
+      },
+      {
+        "from": "values",
+        "allow": []
+      },
+      {
+        "from": "ports",
+        "allow": ["domain", "values"]
+      },
+      {
+        "from": "application",
+        "allow": ["domain", "values", "ports", "defaults", "search"]
+      },
+      {
+        "from": "defaults",
+        "allow": ["domain"]
+      },
+      {
+        "from": "search-rules",
+        "allow": [],
+        "allowTypeOnly": ["domain", "search-internal"]
+      },
+      {
+        "from": "search-internal",
+        "allow": ["domain", "values", "search-rules"],
+        "allowTypeOnly": ["ports"]
+      },
+      {
+        "from": "search",
+        "allow": ["domain", "values", "ports", "search-internal", "search-rules"]
+      },
+      {
+        "from": "gws-internal",
+        "allow": ["domain", "values", "ports", "providers"]
+      },
+      {
+        "from": "gws",
+        "allow": ["domain", "values", "ports", "providers", "gws-internal"]
+      },
+      {
+        "from": "providers",
+        "allow": ["domain", "values", "ports", "streams"]
+      },
+      {
+        "from": "streams",
+        "allow": []
+      },
+      {
+        "from": "http-internal",
+        "allow": [
+          "domain",
+          "values",
+          "ports",
+          "application",
+          "defaults",
+          "composition",
+          "http-options",
+          "transport-contract",
+          "streams"
+        ]
+      },
+      {
+        "from": "http",
+        "allow": ["domain", "values", "ports", "http-options", "http-internal"]
+      },
+      {
+        "from": "http-options",
+        "allow": ["domain", "values", "ports"]
+      },
+      {
+        "from": "cli-internal",
+        "allow": ["domain", "values", "ports", "defaults", "transport-contract", "streams"]
+      },
+      {
+        "from": "cli",
+        "allow": [
+          "domain",
+          "values",
+          "ports",
+          "application",
+          "defaults",
+          "composition",
+          "http",
+          "http-options",
+          "transport-contract",
+          "cli-internal"
+        ]
+      },
+      {
+        "from": "transport-contract",
+        "allow": ["domain", "values", "streams"]
+      },
+      {
+        "from": "composition",
+        "allow": ["domain", "values", "ports", "providers", "gws"]
+      },
+      {
+        "from": "runtime",
+        "allow": ["cli", "composition"]
+      },
+      {
+        "from": "contracts",
+        "allow": ["domain"]
+      },
+      {
+        "from": "browser-values",
+        "allow": ["domain", "values"]
+      },
+      {
+        "from": "browser-update",
+        "allow": [
+          "domain",
+          "values",
+          "defaults",
+          "browser-values",
+          "browser-commands",
+          "browser-update-internal"
+        ]
+      },
+      {
+        "from": "browser-update-internal",
+        "allow": ["domain", "values", "browser-values", "browser-commands"]
+      },
+      {
+        "from": "browser-commands",
+        "allow": ["domain", "values", "transport-contract", "browser-values"]
+      },
+      {
+        "from": "view-internal",
+        "allow": ["domain", "values", "browser-values"]
+      },
+      {
+        "from": "view",
+        "allow": ["browser-values", "view-internal"]
+      },
+      {
+        "from": "browser-entry",
+        "allow": ["browser-values", "browser-update", "view"]
+      },
+      {
+        "from": "tests",
+        "allow": [
+          "domain",
+          "values",
+          "ports",
+          "application",
+          "defaults",
+          "search",
+          "gws",
+          "providers",
+          "streams",
+          "http",
+          "http-options",
+          "cli",
+          "transport-contract",
+          "composition",
+          "contracts",
+          "browser-values",
+          "browser-update",
+          "browser-commands",
+          "view",
+          "site-simulation"
+        ]
+      },
+      {
+        "from": "tooling",
+        "allow": []
+      },
+      {
+        "from": "site-simulation",
+        "allow": ["domain", "application", "ports"]
+      },
+      {
+        "from": "site",
+        "allow": ["site-simulation"],
+        "allowTypeOnly": ["domain"]
+      }
+    ]
+  }
+}

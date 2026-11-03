@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.vercel
+.env*
+!.env.example
+*.pem
+*.key
+*.log
+*.snapshot.json
+meeting-finder.local*.json
+credentials*.json
+token*.json

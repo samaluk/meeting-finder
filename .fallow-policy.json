@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.38.1/rule-pack-schema.json",
+  "version": 1,
+  "name": "meeting-finder",
+  "description": "Keep application rules independent of runtime adapters and use injectable application time.",
+  "rules": [
+    {
+      "id": "core-has-no-runtime-adapters",
+      "kind": "banned-import",
+      "zones": [
+        "domain",
+        "values",
+        "ports",
+        "application",
+        "defaults",
+        "search",
+        "search-internal",
+        "search-rules",
+        "browser-values",
+        "browser-update",
+        "browser-update-internal",
+        "browser-commands",
+        "view",
+        "view-internal",
+        "site",
+        "site-simulation"
+      ],
+      "specifiers": [
+        "@effect/platform-bun",
+        "bun",
+        "bun:ffi",
+        "bun:sqlite",
+        "node:fs",
+        "node:fs/promises",
+        "node:child_process",
+        "node:http",
+        "node:https",
+        "node:net",
+        "node:process",
+        "fs",
+        "child_process",
+        "http",
+        "https",
+        "net",
+        "process"
+      ],
+      "message": "Use Directory or CalendarAvailability for provider I/O; keep runtime resources at the composition boundary."
+    },
+    {
+      "id": "scheduling-rules-are-pure",
+      "kind": "banned-import",
+      "zones": ["search-rules"],
+      "specifiers": ["effect", "@effect/platform-bun", "@effect/platform-browser", "foldkit"],
+      "ignoreTypeOnly": true,
+      "message": "Attendance, interval, and ranking functions receive values. Use Effect in search orchestration."
+    },
+    {
+      "id": "application-uses-clock",
+      "kind": "banned-call",
+      "zones": ["application", "search", "search-internal", "search-rules"],
+      "callees": ["Date.now"],
+      "message": "Read application time through Effect Clock, then pass it as a value to pure rules."
+    }
+  ]
+}

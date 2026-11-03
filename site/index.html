@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f1ea" />
+    <meta
+      name="description"
+      content="Find explainable meeting times for large audiences. Required, optional and partial attendance. Open source, read-only, and local to your machine."
+    />
+    <title>Meeting Finder — A little less calendar Tetris.</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/site.css" />
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="navigation">
+        <a class="wordmark" href="#" aria-label="Meeting Finder home"
+          ><span class="mark" aria-hidden="true">m/f</span> meeting-finder</a
+        >
+        <nav aria-label="Main navigation">
+          <a href="#approach">The approach</a><a href="#install">Run locally</a
+          ><a href="https://github.com/samaluk/meeting-finder"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </header>
+      <main id="main">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="status-dot" aria-hidden="true"></span> OPEN SOURCE · LOCAL FIRST · READ
+              ONLY
+            </p>
+            <h1 id="hero-title">Find a time people<br />can <em>actually make.</em></h1>
+            <p class="lede">
+              Everyone matters. Not everyone needs the whole hour. Find meeting times that respect
+              both—and see exactly why they work.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="#demo"
+                >Try the simulated demo <span aria-hidden="true">↓</span></a
+              ><a class="text-link" href="#install"
+                >Or run it on your machine <span aria-hidden="true">↗</span></a
+              >
+            </div>
+            <p class="hero-note">Your calendars stay local. Your decisions stay yours.</p>
+          </div>
+          <aside class="field-note">
+            <span class="note-number">FIELD NOTE / 001</span>
+            <div class="mini-timetable" aria-hidden="true">
+              <span></span><span></span><span></span
+              ><span class="mini-meeting">a time that works</span><span></span><span></span>
+            </div>
+            <p>A full calendar shouldn’t<br />mean an impossible meeting.</p>
+            <span class="note-arrow" aria-hidden="true">↙</span>
+          </aside>
+        </section>
+        <section id="demo" class="demo-section" aria-labelledby="demo-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">01 / THE WORKING EXAMPLE</p>
+              <h2 id="demo-heading">
+                Six people. One hour.<br class="mobile-break" />
+                A little flexibility.
+              </h2>
+            </div>
+            <span class="stamp">SIMULATED DATA</span>
+          </div>
+          <p class="demo-description">
+            Change who’s required, their weight, or how long they need to join. The real search
+            engine does the rest, right here in your browser.
+          </p>
+          <div class="presets" role="group" aria-label="Demo scenarios">
+            <button data-preset="required" aria-pressed="false">
+              <span>01</span> Everyone required</button
+            ><button data-preset="optional" aria-pressed="false">
+              <span>02</span> Make room for optional</button
+            ><button data-preset="partial" aria-pressed="true">
+              <span>03</span> Allow partial attendance
+            </button>
+          </div>
+          <div class="demo-ledger">
+            <div class="schedule">
+              <div class="schedule-heading">
+                <span>MON, 07 JAN 2030</span><span>60 MIN · UTC</span>
+              </div>
+              <div class="timeline-heading" aria-hidden="true">
+                <span>PERSON / ATTENDANCE RULE</span>
+                <div><span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span></div>
+              </div>
+              <div id="people">
+                <p class="fallback">
+                  For example: Alex and Blair are required. Casey joins the first 15 minutes; Devon
+                  joins the last 15. Unknown calendars never count as free.
+                </p>
+              </div>
+              <div class="legend">
+                <span><i class="legend-free"></i> Free</span
+                ><span><i class="legend-busy"></i> Busy</span
+                ><span><i class="legend-unknown"></i> Unknown</span
+                ><span class="meeting-key">└ Selected meeting ┘</span>
+              </div>
+            </div>
+            <aside class="verdict" aria-labelledby="verdict-heading">
+              <p class="eyebrow" id="verdict-heading">THE VERDICT</p>
+              <div id="summary" aria-live="polite" aria-atomic="true">
+                <p class="score">12<span>/14</span></p>
+                <p>weight represented in the example</p>
+                <noscript
+                  ><p>
+                    Enable JavaScript to change the example. Live calendar access runs only in the
+                    local application.
+                  </p></noscript
+                >
+              </div>
+              <div id="candidates"></div>
+              <p class="verdict-note">
+                Coverage measures attendance rules met—not person-minutes or acceptance probability.
+              </p>
+            </aside>
+          </div>
+          <p class="simulation-note">
+            <span aria-hidden="true">◉</span> Fictional people. Simulated calendars. No account,
+            credentials, or calendar API calls.
+          </p>
+        </section>
+        <section id="approach" class="approach" aria-labelledby="approach-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">02 / A MORE HUMAN SET OF RULES</p>
+              <h2 id="approach-heading">
+                Not every invitation<br />is an all-or-nothing decision.
+              </h2>
+            </div>
+          </div>
+          <div class="principles">
+            <article>
+              <span class="principle-symbol">■</span>
+              <h3>The people you need.</h3>
+              <p>
+                Required participants must meet their attendance rule. If they can’t, the time is
+                blocked. A high score never overrides that.
+              </p>
+            </article>
+            <article>
+              <span class="principle-symbol">□</span>
+              <h3>The people you’d like.</h3>
+              <p>
+                Optional participants improve coverage when they can join. Give each person a
+                relative weight to reflect what matters.
+              </p>
+            </article>
+            <article>
+              <span class="principle-symbol">?</span>
+              <h3>The things we don’t know.</h3>
+              <p>
+                An unreadable calendar is unknown. Never free. See the uncertainty alongside the
+                conflicts, without a false promise.
+              </p>
+            </article>
+          </div>
+          <div class="formula">
+            <code>coverage = available weight ÷ total weight × 100</code
+            ><span>A satisfied partial rule contributes its full weight.</span>
+          </div>
+        </section>
+        <section class="partial-section" aria-labelledby="partial-heading">
+          <div>
+            <p class="eyebrow">03 / PART OF THE HOUR STILL COUNTS</p>
+            <h2 id="partial-heading">“I can make<br /><em>the beginning.”</em></h2>
+            <p class="body-copy">
+              That can be enough. Choose whole-meeting, first-minute, last-minute, or
+              continuous-percentage attendance for each person.
+            </p>
+            <p class="body-copy muted">
+              Two separate 15-minute gaps don’t count as 50% of an hour. The free block has to be
+              continuous.
+            </p>
+          </div>
+          <div class="rule-strips">
+            <div>
+              <span>Whole meeting</span>
+              <div class="rule-track whole"><i></i></div>
+              <code>60 / 60 min</code>
+            </div>
+            <div>
+              <span>First 15 minutes</span>
+              <div class="rule-track start"><i></i></div>
+              <code>Start anchored</code>
+            </div>
+            <div>
+              <span>Last 15 minutes</span>
+              <div class="rule-track end"><i></i></div>
+              <code>End anchored</code>
+            </div>
+            <div>
+              <span>50% continuous</span>
+              <div class="rule-track percentage"><i></i></div>
+              <code>One 30-min block</code>
+            </div>
+            <div class="fragmented">
+              <span>Two separate gaps</span>
+              <div class="rule-track split"><i></i><i></i></div>
+              <code>✕ Not 50% continuous</code>
+            </div>
+          </div>
+        </section>
+        <section class="honesty">
+          <p class="eyebrow">04 / NO MAGIC, NO MOVING YOUR MEETINGS</p>
+          <h2>Sometimes, nothing fits.<br />You’ll know why.</h2>
+          <div>
+            <p>
+              See blocked alternatives and the people or rules that block them. Adjust the
+              conditions yourself. Meeting Finder never quietly relaxes a requirement.
+            </p>
+            <p>
+              It reads free/busy information. It doesn’t create events, send invitations or
+              messages, assume conflicts can move, or store calendars in your browser.
+            </p>
+          </div>
+        </section>
+        <section id="install" class="install" aria-labelledby="install-heading">
+          <div>
+            <p class="eyebrow">05 / YOUR MACHINE. YOUR EXISTING LOGIN.</p>
+            <h2 id="install-heading">Keep the calendar.<br />Skip the calendar Tetris.</h2>
+            <p class="body-copy">
+              Run a credential-free demo first. For your actual audience, Meeting Finder uses the
+              Google Workspace CLI’s saved authentication.
+            </p>
+            <p class="interface-note">
+              Local web app <span>·</span> CLI <span>·</span> HTTP API <span>·</span> Agent skill
+            </p>
+            <a class="text-link" href="https://github.com/samaluk/meeting-finder#start-locally"
+              >Read the setup guide <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="terminal">
+            <div>
+              <span>GET STARTED / BUN + MISE</span
+              ><button id="copy-install" aria-label="Copy installation commands">
+                Copy commands
+              </button>
+            </div>
+            <pre><code id="install-commands">git clone https://github.com/samaluk/meeting-finder.git
+cd meeting-finder
+mise install
+mise run install
+bun run build
+bun run start -- serve --demo --port 4310</code></pre>
+            <p>
+              Then open <a href="http://127.0.0.1:4310">127.0.0.1:4310</a>. Demo mode makes no
+              Google calls.
+            </p>
+            <p id="copy-status" role="status"></p>
+          </div>
+        </section>
+      </main>
+      <footer>
+        <div>
+          <a class="wordmark" href="#">m/f <span>meeting-finder</span></a>
+          <p>
+            Early open-source software. MIT licensed.<br />Independent project. Not affiliated with
+            Google.
+          </p>
+        </div>
+        <nav aria-label="Project resources">
+          <a href="https://github.com/samaluk/meeting-finder/blob/main/SPEC.md">Specification</a
+          ><a href="https://github.com/samaluk/meeting-finder/blob/main/GLOSSARY.md">Glossary</a
+          ><a href="https://github.com/samaluk/meeting-finder/blob/main/CONTRIBUTING.md"
+            >Contribute</a
+          ><a href="https://github.com/samaluk/meeting-finder/blob/main/LICENSE">MIT license ↗</a>
+        </nav>
+        <span class="footer-note">MADE FOR THE TIME BETWEEN PEOPLE.</span>
+      </footer>
+    </div>
+  </body>
+</html>

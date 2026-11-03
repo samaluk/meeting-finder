@@ -1,0 +1,49 @@
+[tools]
+bun = "1.4.2"
+hk = "2.5.0"
+jactionlint = "2.0.2"
+gitleaks = "8.30.1"
+
+[tasks.install]
+description = "Install the locked JavaScript dependencies"
+run = "bun install --frozen-lockfile"
+
+[tasks.format]
+description = "Format source and documentation files"
+run = "bun run format"
+
+[tasks.format-check]
+description = "Check source and documentation formatting"
+run = "bun run format:check"
+
+[tasks.lint-actions]
+description = "Lint GitHub Actions workflow files"
+run = "jactionlint"
+
+[tasks.lint-boundaries]
+description = "Check module interfaces and dependency direction"
+run = "bun run lint:boundaries"
+
+[tasks.check]
+description = "Run all repository checks"
+run = "mise run install && hk check --all"
+
+[tasks.build]
+description = "Build the web client"
+run = "bun run build"
+
+[tasks.dev]
+description = "Build the web client and serve it from the local Effect application"
+run = "bun run build && bun run start -- serve"
+
+[tasks.setup-hooks]
+description = "Install this repository's local Git hooks"
+run = "hk install --mise --force-local"
+
+[tasks.build-site]
+description = "Build the public static landing page"
+run = "bun run build:site"
+
+[tasks.scan-secrets]
+description = "Scan tracked and publishable files for secrets"
+run = "sh .github/scripts/scan-secrets.sh"

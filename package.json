@@ -1,0 +1,52 @@
+{
+  "name": "meeting-finder",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Find explainable meeting times across a shared audience.",
+  "homepage": "https://github.com/samaluk/meeting-finder#readme",
+  "bugs": {
+    "url": "https://github.com/samaluk/meeting-finder/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samaluk/meeting-finder.git"
+  },
+  "bin": {
+    "meeting-finder": "src/main.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "dev": "bun run build && bun run start -- serve",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run build && bun run build:site && bun --bun vitest run",
+    "lint": "oxlint .",
+    "lint:boundaries": "bunx --no-install --bun fallow architecture --fail-on-issues && bunx --no-install --bun fallow dead-code --unresolved-imports --fail-on-issues",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "effect:diagnostics": "effect-tsgo diagnostics --project tsconfig.json",
+    "check": "bun run format:check && bun run lint && bun run lint:boundaries && bun run typecheck && bun run effect:diagnostics && bun run test",
+    "build:site": "vite build --config vite.site.config.ts"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "4.0.0",
+    "@effect/platform-bun": "4.0.0",
+    "@js-temporal/polyfill": "0.5.1",
+    "effect": "4.0.0",
+    "foldkit": "0.167.0"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.51.1",
+    "@effect/vitest": "4.0.0",
+    "@types/bun": "1.4.2",
+    "fallow": "3.38.1",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  },
+  "packageManager": "bun@1.4.2"
+}

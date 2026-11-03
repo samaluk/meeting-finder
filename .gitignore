@@ -1,0 +1,19 @@
+node_modules/
+.mise/
+.fallow/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Local hosting state, credentials, and scheduling exports
+.vercel/
+*.pem
+*.key
+*.log
+credentials*.json
+token*.json
+meeting-finder.local*.json
+*.snapshot.json
