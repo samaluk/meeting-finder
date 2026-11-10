@@ -137,6 +137,26 @@ describe("web update contract", () => {
     expect(allOptional.model.people.every((participant) => !participant.required)).toBe(true);
   });
 
+  it("adds one person source per pasted address and clears them together", () => {
+    const pasted = update(
+      {
+        ...initial,
+        sourceType: "person",
+        sourceDraft: "a@example.test, b@example.test\nb@example.test",
+      },
+      Message.AddedSource(),
+    );
+    expect(pasted.model.sources.map((source) => source.ref)).toEqual([
+      "a@example.test",
+      "b@example.test",
+    ]);
+    const group = update(
+      { ...pasted.model, sourceType: "google_group", sourceDraft: "team@example.test" },
+      Message.AddedSource(),
+    );
+    expect(group.model.sources).toHaveLength(3);
+    expect(update(group.model, Message.ClearedSources()).model.sources).toEqual([]);
+  });
   it("searches a prepared snapshot without sending sources", () => {
     const model = {
       ...initial,

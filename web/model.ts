@@ -118,6 +118,7 @@ export const Message = defineMessageUnion({
   AddedSource: {},
   ChangedSourceDraft: { value: Schema.String },
   RemovedSource: { index: Schema.Finite },
+  ClearedSources: {},
   RemovedPerson: { index: Schema.Finite },
   ChangedAttendance: {
     index: Schema.Finite,

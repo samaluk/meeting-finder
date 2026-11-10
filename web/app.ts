@@ -33,6 +33,11 @@ const sourceTypeOf = (value: string): Source["type"] => {
       return "person";
   }
 };
+/** A pasted list of people becomes one source per address; other kinds keep the draft whole. */
+const sourceRefsOf = (type: Source["type"], draft: string): ReadonlyArray<string> =>
+  type === "person"
+    ? [...new Set(draft.split(/[\s,;]+/).filter((ref) => ref.length > 0))]
+    : [draft];
 export const init: Runtime.ApplicationInit<Model, Message> = () => ({
   model: initial,
   commands: [Config(tokenOf(initial))],
@@ -102,12 +107,12 @@ export const update = (model: Model, message: Message) =>
       invalidate(model, {
         sources: [
           ...model.sources,
-          {
+          ...sourceRefsOf(model.sourceType, model.sourceDraft).map((ref) => ({
             type: model.sourceType,
-            ref: model.sourceDraft,
+            ref,
             required: model.sourceRequired,
             weight: model.sourceWeight,
-          },
+          })),
         ],
         sourceDraft: "",
       }),
@@ -167,6 +172,7 @@ export const update = (model: Model, message: Message) =>
     },
     RemovedSource: ({ index }) =>
       invalidate(model, { sources: model.sources.filter((_, i) => i !== index) }),
+    ClearedSources: () => invalidate(model, { sources: [] }),
     AddedPerson: () =>
       invalidate(model, {
         people: [

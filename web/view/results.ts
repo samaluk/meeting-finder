@@ -7,31 +7,117 @@ import {
   orderedObservations,
 } from "../presentation.js";
 
-const attendeeList = (model: Model, h: HtmlBuilder<Message>, candidate: Candidate) =>
-  h.ul(
-    [h.Class("attendees")],
-    orderedObservations(model.people, candidate).map((attendee) =>
-      h.li(
-        [h.Class(attendee.ruleSatisfied ? "met" : "unmet")],
-        [
-          h.span(
-            [h.Class("attendee-name")],
+const nameOf = (model: Model, id: string) =>
+  model.people.find((person) => person.id === id)?.name ?? id;
+
+/** Large audiences: explain who misses the rule in full, list everyone else by name. */
+const attendance = (model: Model, h: HtmlBuilder<Message>, candidate: Candidate) => {
+  const observations = orderedObservations(model.people, candidate);
+  const unmet = observations.filter((observation) => !observation.ruleSatisfied);
+  const met = observations.filter((observation) => observation.ruleSatisfied);
+  return h.div(
+    [h.Class("attendance")],
+    [
+      unmet.length === 0
+        ? h.empty
+        : h.div(
+            [],
             [
-              model.people.find((person) => person.id === attendee.participantId)?.name ??
-                attendee.participantId,
+              h.h4([h.Class("unmet")], [`Rule not met · ${unmet.length}`]),
+              h.ul(
+                [h.Class("attendees")],
+                unmet.map((attendee) =>
+                  h.li(
+                    [],
+                    [
+                      h.span([h.Class("attendee-name")], [nameOf(model, attendee.participantId)]),
+                      h.span([], [observationText(attendee, model.timeZone)]),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          h.span([], [observationText(attendee, model.timeZone)]),
+      met.length === 0
+        ? h.empty
+        : h.div(
+            [],
+            [
+              h.h4([h.Class("met")], [`Rule met · ${met.length}`]),
+              h.ul(
+                [h.Class("name-list")],
+                met.map((attendee) =>
+                  h.li(
+                    [h.Title(observationText(attendee, model.timeZone))],
+                    [nameOf(model, attendee.participantId)],
+                  ),
+                ),
+              ),
+            ],
+          ),
+    ],
+  );
+};
+
+const optionRow = (
+  model: Model,
+  h: HtmlBuilder<Message>,
+  candidate: Candidate,
+  copyIndex: number | null,
+) => {
+  const range = formatRange(candidate.start, candidate.end, model.timeZone);
+  const blocked = copyIndex === null;
+  const missing = candidate.participants.length - candidate.attendance;
+  return h.details(
+    [h.Class(blocked ? "option blocked" : "option")],
+    [
+      h.summary(
+        [],
+        [
+          h.span([h.Class("day")], [range.day]),
+          h.span([h.Class("time")], [range.time]),
+          h.span(
+            [h.Class("fit")],
+            [
+              blocked
+                ? `Blocked by ${(candidate.requiredConflicts ?? []).map((id) => nameOf(model, id)).join(", ") || "a required attendee"}`
+                : missing === 0
+                  ? `All ${candidate.participants.length} rules met`
+                  : `${missing} of ${candidate.participants.length} miss their rule`,
+            ],
+          ),
+          h.span([h.Class("score")], [blocked ? "–" : `${candidate.score ?? 0}%`]),
         ],
       ),
-    ),
-  );
-
-const when = (model: Model, h: HtmlBuilder<Message>, candidate: Candidate) => {
-  const range = formatRange(candidate.start, candidate.end, model.timeZone);
-  return h.div(
-    [h.Class("when")],
-    [h.span([h.Class("day")], [range.day]), h.strong([h.Class("time")], [range.time])],
+      h.div(
+        [h.Class("option-body")],
+        [
+          h.div(
+            [h.Class("option-meta")],
+            [
+              h.span(
+                [h.Class("meta")],
+                [
+                  blocked
+                    ? "Review only. This interval cannot be copied as a valid proposal"
+                    : `Weight ${candidate.availableWeight ?? 0} of ${candidate.totalWeight ?? 0}`,
+                ],
+              ),
+              blocked
+                ? h.empty
+                : h.button(
+                    [
+                      h.Class("button ghost small"),
+                      h.OnClick(Message.ClickedCopy({ index: copyIndex })),
+                    ],
+                    ["Copy proposal"],
+                  ),
+            ],
+          ),
+          attendance(model, h, candidate),
+        ],
+      ),
+    ],
   );
 };
 
@@ -71,79 +157,21 @@ export const resultsView = (model: Model, h: HtmlBuilder<Message>) => {
       h.div(
         [h.Class("results-scroll")],
         [
-          h.div(
-            [h.Class("results-list")],
-            (result?.candidates ?? []).map((candidate, index) =>
-              h.article(
-                [h.Class("result valid")],
-                [
-                  h.div(
-                    [h.Class("result-top")],
-                    [
-                      when(model, h, candidate),
-                      h.span([h.Class("score")], [`${candidate.score ?? 0}%`]),
-                    ],
-                  ),
-                  h.p(
-                    [h.Class("result-summary")],
-                    [
-                      `${candidate.attendance} of ${candidate.participants.length} attendance rules met · weight ${candidate.availableWeight ?? 0} of ${candidate.totalWeight ?? 0}`,
-                    ],
-                  ),
-                  h.div(
-                    [h.Class("result-actions")],
-                    [
-                      h.details(
-                        [],
-                        [
-                          h.summary([], ["Availability details"]),
-                          attendeeList(model, h, candidate),
-                        ],
-                      ),
-                      h.button(
-                        [h.Class("button ghost small"), h.OnClick(Message.ClickedCopy({ index }))],
-                        ["Copy proposal"],
-                      ),
-                    ],
-                  ),
-                ],
+          (result?.candidates.length ?? 0) === 0
+            ? h.empty
+            : h.div(
+                [h.Class("options")],
+                (result?.candidates ?? []).map((candidate, index) =>
+                  optionRow(model, h, candidate, index),
+                ),
               ),
-            ),
-          ),
           blocked.length === 0 ? h.empty : h.h3([], ["Blocked alternatives"]),
-          h.div(
-            [h.Class("results-list")],
-            blocked.map((candidate) =>
-              h.article(
-                [h.Class("result blocked")],
-                [
-                  h.div(
-                    [h.Class("result-top")],
-                    [when(model, h, candidate), h.span([h.Class("blocked-tag")], ["Blocked"])],
-                  ),
-                  h.p(
-                    [h.Class("result-summary")],
-                    [
-                      (candidate.requiredConflicts ?? []).length > 0
-                        ? `Required conflicts: ${(candidate.requiredConflicts ?? []).join(", ")}`
-                        : "Required attendee conflict",
-                    ],
-                  ),
-                  h.details(
-                    [],
-                    [
-                      h.summary([], ["Why blocked"]),
-                      h.p(
-                        [h.Class("meta")],
-                        ["Review only. This interval cannot be copied as a valid proposal"],
-                      ),
-                      attendeeList(model, h, candidate),
-                    ],
-                  ),
-                ],
+          blocked.length === 0
+            ? h.empty
+            : h.div(
+                [h.Class("options")],
+                blocked.map((candidate) => optionRow(model, h, candidate, null)),
               ),
-            ),
-          ),
           result === null || (result.candidates.length === 0 && blocked.length === 0)
             ? h.div(
                 [h.Class("empty")],
