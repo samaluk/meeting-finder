@@ -13,6 +13,8 @@ The normal loop is:
 
 Use `mise install` and `mise run install` for setup. Use `mise run check` before a handoff. It runs frozen dependency installation, Oxfmt, Oxlint, strict TypeScript, Effect diagnostics, Vitest, both web builds, and workflow checks through hk. `mise run setup-hooks` installs only this repository's local hk hook.
 
+The [Pullfrog setup guide](docs/pullfrog.md) describes automated PR review, approval-gated auto-merge, and the repository settings needed to activate them. The workflow alone does not enable automatic merging.
+
 Use demo mode for examples and tests that need no Google account. Live provider tests use a fake `GwsProcess`; they must not invoke a user's real calendars. Keep credentials and personal configuration out of the repository.
 
 Commit messages should state the change in the domain or contract. Pull requests should explain the trigger, resulting behavior, affected F requirements, validation, and any remaining limitation. Do not include generated credentials, local paths from another checkout, or unsupported release and deployment claims.
