@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    { "name": "landmines-testing", "specifier": "@interfere/landmines/testing" },
+    { "name": "landmines-structure", "specifier": "@interfere/landmines/structure" }
+  ],
+  "rules": {
+    "landmines-testing/no-test-doubles": "error",
+    "landmines-testing/strict-msw": "error",
+    "landmines-testing/no-fixed-sleep": ["error", { "allow": { "test/gws-process.test.ts": 1 } }],
+    "landmines-testing/no-unsignaled-poll": "error",
+    "landmines-testing/no-flake-masking": "error",
+    "landmines-structure/test-file-names": "error"
+  }
+}

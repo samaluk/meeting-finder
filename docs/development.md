@@ -16,7 +16,22 @@ mise run install
 mise run check
 ```
 
-The committed tools are Bun 1.4.2, hk 2.5.0, and jactionlint 2.0.2. TypeScript, Effect, Foldkit, Oxfmt, Oxlint, Fallow 3.38.1, and Vitest are locked in `package.json`/`bun.lock`. Bun 1.4.2 does not provide a formatter, so formatting is Oxfmt and linting is Oxlint. hk orchestrates focused checks; jactionlint applies only to workflow files. `mise run setup-hooks` installs the local hook.
+The committed tools are Bun 1.4.2, Node 24.22.1, hk 2.5.0, and jactionlint 2.0.2. TypeScript, Effect, Foldkit, Oxfmt, Oxlint, Fallow 3.38.1, and Vitest are locked in `package.json`/`bun.lock`. Bun 1.4.2 does not provide a formatter, so formatting is Oxfmt and linting is Oxlint. Oxlint's Landmines JavaScript plugins require Node >=22.18; mise supplies the pinned Node locally and in both GitHub workflows. hk orchestrates focused checks; lint always checks the repository so config edits and exact-count allowances are validated together. jactionlint applies only to workflow files. `mise run setup-hooks` installs the local hook.
+
+### Testing lint backlog
+
+`.oxlintrc.json` enables the five Landmines testing rules and `test-file-names` as errors, without enabling style, type, or other structure rules. Existing test behavior is unchanged. The initial backlog is six violations:
+
+| Rule                 | Grandfathered violations | Location                                                                                                                        |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `no-test-doubles`    | 5                        | Five targeted `oxlint-disable-next-line` directives with TODOs in `test/web-effect.test.ts`; this rule has no allowlist option. |
+| `no-fixed-sleep`     | 1                        | Exact-count allowance for `test/gws-process.test.ts`.                                                                           |
+| `strict-msw`         | 0                        | None.                                                                                                                           |
+| `no-unsignaled-poll` | 0                        | None.                                                                                                                           |
+| `no-flake-masking`   | 0                        | None.                                                                                                                           |
+| `test-file-names`    | 0                        | None; existing names already comply.                                                                                            |
+
+Do not broaden the baseline for new tests. When removing a grandfathered violation, lower or remove its per-file allowance (the rule rejects stale counts), or remove its targeted disable directive. TODO: replace the existing process-exit sleep with a process completion signal when revisiting that test.
 
 Run focused checks while iterating:
 

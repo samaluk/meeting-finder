@@ -25,6 +25,7 @@ it.effect("aborts a pending typed config request when its Effect is interrupted"
     });
     let aborted = false;
     const previousFetch = globalThis.fetch;
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO: replace the legacy fetch double with MSW.
     globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
       started = true;
       notifyStarted();
@@ -42,6 +43,7 @@ it.effect("aborts a pending typed config request when its Effect is interrupted"
       yield* Fiber.interrupt(fiber);
       expect(aborted).toBe(true);
     } finally {
+      // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO: remove this restore with the legacy fetch double.
       globalThis.fetch = previousFetch;
     }
   }),
@@ -170,6 +172,7 @@ it.effect(
 it.effect("classifies a clipboard failure independently from request failures", () =>
   Effect.gen(function* () {
     const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO: test clipboard failure through a real browser boundary.
     Object.defineProperty(globalThis, "navigator", {
       configurable: true,
       value: { clipboard: { writeText: () => Promise.reject(new Error("Clipboard unavailable")) } },
@@ -179,7 +182,9 @@ it.effect("classifies a clipboard failure independently from request failures", 
       expect(result._tag).toBe("CopyFailed");
       if (result._tag === "CopyFailed") expect(result).toMatchObject({ revision: 3, operation: 4 });
     } finally {
+      // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO: remove this restore with the legacy clipboard double.
       if (previousNavigator) Object.defineProperty(globalThis, "navigator", previousNavigator);
+      // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO: remove this cleanup with the legacy clipboard double.
       else Reflect.deleteProperty(globalThis, "navigator");
     }
   }),
