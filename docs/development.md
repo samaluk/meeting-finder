@@ -16,7 +16,7 @@ mise run install
 mise run check
 ```
 
-The committed tools are Bun 1.4.2, Node 24.22.1, hk 2.5.0, and jactionlint 2.0.2. TypeScript, Effect, Foldkit, Oxfmt, Oxlint, Fallow 3.38.1, and Vitest are locked in `package.json`/`bun.lock`. Bun 1.4.2 does not provide a formatter, so formatting is Oxfmt and linting is Oxlint. Oxlint's Landmines JavaScript plugins require Node >=22.18; mise supplies the pinned Node locally and in both GitHub workflows. hk orchestrates focused checks; lint always checks the repository so config edits and exact-count allowances are validated together. jactionlint applies only to workflow files. `mise run setup-hooks` installs the local hook.
+The committed tools are Bun 1.4.2, Node 24.22.1, hk 2.5.0, and jactionlint 2.0.2. TypeScript, Effect, Foldkit, Oxfmt, Oxlint, Fallow 3.45.0, and Vitest are locked in `package.json`/`bun.lock`. Bun 1.4.2 does not provide a formatter, so formatting is Oxfmt and linting is Oxlint. Oxlint's Landmines JavaScript plugins require Node >=22.18; mise supplies the pinned Node locally and in both GitHub workflows. hk orchestrates focused checks; lint always checks the repository so config edits and exact-count allowances are validated together. jactionlint applies only to workflow files. `mise run setup-hooks` installs the local hook.
 
 ### Testing lint backlog
 
@@ -48,7 +48,28 @@ Effect diagnostics are a real gate and must not be suppressed. Keep time injecta
 
 Use the ownership map in [design.md](design.md) and the [module-interface guide](../src/README.md) when placing new behavior. Keep pure scheduling rules separate from provider acquisition, import concrete schema owners in production, and leave provider selection in `src/layers.ts`. Fallow checks private interfaces, dependency direction, coverage, runtime cycles, and targeted import policies in both the hk and package check pipelines. Its separate unresolved-import check catches misspelled module paths. Type-only imports remain subject to boundaries, but are excluded from cycle detection.
 
-Before changing a module, inspect its rules with `bunx --no-install --bun fallow guard <file>`. After changing an architecture rule, prove both acceptance and rejection: run the clean check, introduce a temporary forbidden import, verify a nonzero exit with the intended finding, remove the probe, and rerun. Do not suppress a finding merely to make the gate pass. Use `fallow health` or `fallow dupes` for additional review evidence when useful; their broader findings are outside the architecture gate.
+Before changing a module, inspect its rules with `bunx --no-install --bun fallow guard <file>`. After changing an architecture rule, prove both acceptance and rejection: run the clean check, introduce a temporary forbidden import, verify a nonzero exit with the intended finding, remove the probe, and rerun. Do not suppress a finding merely to make the gate pass.
+
+### Fallow updates
+
+The CI `check` job runs `bun run lint:boundaries` through mise and hk. Per [ADR 0004](adr/0004-fallow-architecture-enforcement.md), it blocks on architecture, parse failures, and unresolved imports only. Full dead-code, duplication, health, and changed-code audits are advisory; neither CI nor hk runs them as a separate gate.
+
+Once Renovate is enabled for this repository, `renovate.json` limits Bun dependency update PRs to Fallow. Review each bump with its lockfile, update `minimumVersion` and both Fallow schema URLs to the same release, and verify the config before merging:
+
+```sh
+bunx --no-install --bun fallow config --resolved
+bunx --no-install --bun fallow config --format json
+mise run check
+```
+
+Use `config --resolved` to check that the new CLI loads the config without falling back. Compare the merged config from `config --format json` before and after for the gate severities, zones, dependency rules, coverage, rule packs, and import resolution settings. Before 3.45.0, `config --format json` is also the way to capture the old effective config because `--resolved` is unavailable.
+
+The Codex and Claude skill pointers use the skills shipped in the locked Fallow package. Refresh the pointers on upgrade without installing agent hooks, MCP settings, or a generated guide:
+
+```sh
+bunx --no-install --bun fallow agent install --harness codex --harness claude --without guide --without mcp --without hooks
+bunx --no-install oxfmt --write .agents/skills .claude/skills
+```
 
 ## Scope discipline
 
