@@ -8,15 +8,15 @@ Module ownership needs an executable constraint. The original architecture tests
 
 ## Decision
 
-Use Fallow 3.38.1 as an exact project dev dependency. Bun installs the platform binary from the lockfile; no global install, downloaded CLI at check time, TypeScript downgrade, or Rust toolchain is required. Remove the custom graph tests and the dependency-cruiser/SWC dependencies.
+Use Fallow 3.45.0 as an exact project dev dependency. Bun installs the platform binary from the lockfile; no global install, downloaded CLI at check time, TypeScript downgrade, or Rust toolchain is required. This replaces the custom graph tests and the dependency-cruiser/SWC dependencies. Renovate proposes Fallow pin and lockfile updates for review; a bump must preserve the resolved gate policy.
 
 Declare explicit zones and allowed dependencies in `.fallowrc.json`. Public module files compose private implementation folders. `src/search/` is private to `src/search.ts`; CLI, HTTP, Google mapping, and browser views follow the same convention. `src/domain/` contains deliberately shared schema/value interfaces. `http-options.ts` and `cli-output.ts` are separate public interfaces with concrete callers. Every analyzed source file must belong to a zone, including unreachable files.
 
 Fallow traces named and default reexports to their origin. Private factories therefore stay private instead of being exposed through a barrel. Google mapping tests acquire the publicly composed provider layers with an injected fake `GwsProcess`, exercising the same interface used by composition.
 
-Run `fallow architecture --fail-on-issues` and a focused `fallow dead-code --unresolved-imports --fail-on-issues` in `lint:boundaries`. The architecture command covers boundaries, coverage, runtime cycles, reexport cycles, and the declarative policy pack. The second command covers resolution because unresolved imports are outside the architecture command's selection. Enable parse-failure gating. Include this task in mise, hk, package checks, and the existing CI pipeline.
+Run `fallow architecture --fail-on-issues` and a focused `fallow dead-code --unresolved-imports --fail-on-issues` in `lint:boundaries`. The architecture command covers boundaries, coverage, runtime cycles, reexport cycles, package cycles, and the declarative policy pack. The second command covers resolution because unresolved imports are outside the architecture command's selection. Parse failures are blocking. Keep this task in mise, hk, package checks, and the existing CI `check` job. No `audit` step is required in CI or hk.
 
-Zones govern project files, including the restriction that production imports concrete schema owners instead of the compatibility contract barrel. `.fallow-policy.json` separately restricts selected runtime packages, runtime Effect imports in pure scheduling rules, and direct application `Date.now` calls. These are data-only policies over Fallow's parser output. They do not execute another custom scanner. Keep dead-code cleanup, duplication, and complexity analysis available for investigation without adding their broader findings to this gate.
+Zones govern project files, including the restriction that production imports concrete schema owners instead of the compatibility contract barrel. `.fallow-policy.json` separately restricts selected runtime packages, runtime Effect imports in pure scheduling rules, and direct application `Date.now` calls. These are data-only policies over Fallow's parser output. They do not execute another custom scanner. Full dead-code, duplication, and health reports are advisory. This gate needs neither a saved baseline nor clone suppressions.
 
 ## Consequences
 

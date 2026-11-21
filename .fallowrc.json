@@ -1,13 +1,13 @@
 {
-  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.38.1/schema.json",
-  "minimumVersion": "3.38.1",
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.45.0/schema.json",
+  "minimumVersion": "3.45.0",
   "failOnParseError": true,
   "rulePacks": [".fallow-policy.json"],
   "rules": {
     "boundary-violation": "error",
     "circular-dependencies": "error",
-    "re-export-cycles": "error",
-    "package-cycles": "error",
+    "re-export-cycle": "error",
+    "package-cycle": "error",
     "policy-violation": "error",
     "unresolved-imports": "error"
   },
