@@ -8,6 +8,13 @@ const fold = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const matchingPeople = (people: Model["people"], filter: string) => {
+  const needle = fold(filter);
+  return people
+    .map((person, index) => ({ person, index }))
+    .filter(({ person }) => fold(`${person.name ?? ""} ${person.id}`).includes(needle));
+};
+
 const sourcesView = (model: Model, h: HtmlBuilder<Message>) =>
   h.div(
     [h.Class("source-box")],
@@ -140,6 +147,59 @@ const detailField = (
     ],
   );
 
+const workingRules = (h: HtmlBuilder<Message>, person: Person, index: number) => {
+  const hours = person.workingHours;
+  return h.details(
+    [h.Class("working-rules")],
+    [
+      h.summary([], ["Calendar and hours"]),
+      h.div(
+        [h.Class("working-grid")],
+        [
+          h.label(
+            [h.Class("field wide")],
+            [
+              "Identity",
+              h.input([
+                h.Value(person.id),
+                h.OnInput((value) => Message.ChangedPerson({ index, field: "id", value })),
+              ]),
+            ],
+          ),
+          detailField(h, index, "Calendars", person.calendarIds.join(","), "calendarIds"),
+          detailField(h, index, "Timezone", person.timeZone, "timeZone"),
+          detailField(h, index, "Weekdays, 1–7", hours.days.join(","), "workingHours:days"),
+          detailField(h, index, "Day starts", hours.start, "workingHours:start"),
+          detailField(h, index, "Day ends", hours.end, "workingHours:end"),
+          detailField(h, index, "Break starts", hours.breakStart ?? "", "workingHours:breakStart"),
+          detailField(h, index, "Break ends", hours.breakEnd ?? "", "workingHours:breakEnd"),
+        ],
+      ),
+    ],
+  );
+};
+
+const attendanceAmount = (
+  h: HtmlBuilder<Message>,
+  rule: Person["attendanceRule"],
+  index: number,
+  label: string,
+  duration: number,
+) => {
+  if (rule.type === "full") return h.empty;
+  const percentage = rule.type === "percentage";
+  return h.input([
+    h.Type("number"),
+    h.Class("amount"),
+    h.Min("1"),
+    h.Max(String(percentage ? 100 : duration)),
+    h.AriaLabel(`${percentage ? "Percent" : "Minutes"} for ${label}`),
+    h.Title(attendanceLabel(rule)),
+    h.Value(String(percentage ? rule.percent : rule.minutes)),
+    h.OnInput((value) => Message.ChangedAttendance({ index, field: "amount", value })),
+  ]);
+};
+
 const personRow = (model: Model, h: HtmlBuilder<Message>, person: Person, index: number) => {
   const label = person.name ?? (person.id || "New person");
   const rule = person.attendanceRule;
@@ -177,18 +237,7 @@ const personRow = (model: Model, h: HtmlBuilder<Message>, person: Person, index:
               h.option([h.Value("percentage")], ["Continuous %"]),
             ],
           ),
-          rule.type === "full"
-            ? h.empty
-            : h.input([
-                h.Type("number"),
-                h.Class("amount"),
-                h.Min("1"),
-                h.Max(String(rule.type === "percentage" ? 100 : model.duration)),
-                h.AriaLabel(`${rule.type === "percentage" ? "Percent" : "Minutes"} for ${label}`),
-                h.Title(attendanceLabel(rule)),
-                h.Value(String(rule.type === "percentage" ? rule.percent : rule.minutes)),
-                h.OnInput((value) => Message.ChangedAttendance({ index, field: "amount", value })),
-              ]),
+          attendanceAmount(h, rule, index, label, model.duration),
         ],
       ),
       h.input([
@@ -206,80 +255,14 @@ const personRow = (model: Model, h: HtmlBuilder<Message>, person: Person, index:
         ],
         ["×"],
       ),
-      h.details(
-        [h.Class("working-rules")],
-        [
-          h.summary([], ["Calendar and hours"]),
-          h.div(
-            [h.Class("working-grid")],
-            [
-              h.label(
-                [h.Class("field wide")],
-                [
-                  "Identity",
-                  h.input([
-                    h.Value(person.id),
-                    h.OnInput((value) => Message.ChangedPerson({ index, field: "id", value })),
-                  ]),
-                ],
-              ),
-              detailField(
-                h,
-                index,
-                "Calendars",
-                (person.calendarIds ?? [person.id]).join(","),
-                "calendarIds",
-              ),
-              detailField(h, index, "Timezone", person.timeZone ?? model.timeZone, "timeZone"),
-              detailField(
-                h,
-                index,
-                "Weekdays, 1–7",
-                (person.workingHours?.days ?? [1, 2, 3, 4, 5]).join(","),
-                "workingHours:days",
-              ),
-              detailField(
-                h,
-                index,
-                "Day starts",
-                person.workingHours?.start ?? "09:00",
-                "workingHours:start",
-              ),
-              detailField(
-                h,
-                index,
-                "Day ends",
-                person.workingHours?.end ?? "18:00",
-                "workingHours:end",
-              ),
-              detailField(
-                h,
-                index,
-                "Break starts",
-                person.workingHours?.breakStart ?? "",
-                "workingHours:breakStart",
-              ),
-              detailField(
-                h,
-                index,
-                "Break ends",
-                person.workingHours?.breakEnd ?? "",
-                "workingHours:breakEnd",
-              ),
-            ],
-          ),
-        ],
-      ),
+      workingRules(h, person, index),
     ],
   );
 };
 
 export const audienceView = (model: Model, h: HtmlBuilder<Message>) => {
   const required = model.people.filter((person) => person.required).length;
-  const needle = fold(model.filter);
-  const visible = model.people
-    .map((person, index) => ({ person, index }))
-    .filter(({ person }) => fold(`${person.name ?? ""} ${person.id}`).includes(needle));
+  const visible = matchingPeople(model.people, model.filter);
   return h.section(
     [h.Class("audience card")],
     [

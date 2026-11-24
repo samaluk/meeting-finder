@@ -1,4 +1,4 @@
-import type { HtmlBuilder } from "foldkit/html";
+import type { Html, HtmlBuilder } from "foldkit/html";
 import { isLoading, Message, type Candidate, type Model } from "../model.js";
 import {
   formatInstant,
@@ -59,6 +59,16 @@ const attendance = (model: Model, h: HtmlBuilder<Message>, candidate: Candidate)
   );
 };
 
+const fitLabel = (model: Model, candidate: Candidate, blocked: boolean) => {
+  if (blocked) {
+    const conflicts = (candidate.requiredConflicts ?? []).map((id) => nameOf(model, id));
+    return `Blocked by ${conflicts.join(", ") || "a required attendee"}`;
+  }
+  const total = candidate.participants.length;
+  const missing = total - candidate.attendance;
+  return missing === 0 ? `All ${total} rules met` : `${missing} of ${total} miss their rule`;
+};
+
 const optionRow = (
   model: Model,
   h: HtmlBuilder<Message>,
@@ -67,7 +77,6 @@ const optionRow = (
 ) => {
   const range = formatRange(candidate.start, candidate.end, model.timeZone);
   const blocked = copyIndex === null;
-  const missing = candidate.participants.length - candidate.attendance;
   return h.details(
     [h.Class(blocked ? "option blocked" : "option")],
     [
@@ -76,16 +85,7 @@ const optionRow = (
         [
           h.span([h.Class("day")], [range.day]),
           h.span([h.Class("time")], [range.time]),
-          h.span(
-            [h.Class("fit")],
-            [
-              blocked
-                ? `Blocked by ${(candidate.requiredConflicts ?? []).map((id) => nameOf(model, id)).join(", ") || "a required attendee"}`
-                : missing === 0
-                  ? `All ${candidate.participants.length} rules met`
-                  : `${missing} of ${candidate.participants.length} miss their rule`,
-            ],
-          ),
+          h.span([h.Class("fit")], [fitLabel(model, candidate, blocked)]),
           h.span([h.Class("score")], [blocked ? "–" : `${candidate.score ?? 0}%`]),
         ],
       ),
@@ -121,9 +121,57 @@ const optionRow = (
   );
 };
 
+const emptyResults = (h: HtmlBuilder<Message>, message: string) =>
+  h.div([h.Class("empty")], [h.p([], [message])]);
+
+const resultOptions = (model: Model, h: HtmlBuilder<Message>): ReadonlyArray<Html> => {
+  const result = model.searchResult;
+  if (result === null)
+    return [emptyResults(h, "Resolve an audience, then search to see ranked times")];
+  const { candidates } = result;
+  const blocked = (result.blockedAlternatives ?? []).slice(0, 5);
+  if (candidates.length === 0 && blocked.length === 0) {
+    return [emptyResults(h, "No interval in this window meets the rules")];
+  }
+  const options: Html[] = [];
+  if (candidates.length > 0) {
+    options.push(
+      h.div(
+        [h.Class("options")],
+        candidates.map((candidate, index) => optionRow(model, h, candidate, index)),
+      ),
+    );
+  }
+  if (blocked.length > 0) {
+    options.push(
+      h.h3([], ["Blocked alternatives"]),
+      h.div(
+        [h.Class("options")],
+        blocked.map((candidate) => optionRow(model, h, candidate, null)),
+      ),
+    );
+  }
+  return options;
+};
+
+const resultFoot = (
+  h: HtmlBuilder<Message>,
+  result: NonNullable<Model["searchResult"]>,
+  timeZone: string,
+) => {
+  const calendars = result.calendarsWithErrors.map((entry) => entry.calendarId);
+  return h.p(
+    [h.Class("meta result-foot")],
+    [
+      `Searched ${formatInstant(result.searchedAt, timeZone)}`,
+      ...(calendars.length > 0 ? [` · Calendar data unavailable for ${calendars.join(", ")}`] : []),
+    ],
+  );
+};
+
 export const resultsView = (model: Model, h: HtmlBuilder<Message>) => {
   const result = model.searchResult;
-  const blocked = (result?.blockedAlternatives ?? []).slice(0, 5);
+  const loading = isLoading(model);
   return h.section(
     [h.Class("results card")],
     [
@@ -148,60 +196,14 @@ export const resultsView = (model: Model, h: HtmlBuilder<Message>) => {
             [
               h.Class("button primary"),
               h.OnClick(Message.ClickedSearch()),
-              h.Disabled(isLoading(model) || model.people.length === 0),
+              h.Disabled(loading || model.people.length === 0),
             ],
-            [isLoading(model) ? "Searching…" : "Search availability"],
+            [loading ? "Searching…" : "Search availability"],
           ),
         ],
       ),
-      h.div(
-        [h.Class("results-scroll")],
-        [
-          (result?.candidates.length ?? 0) === 0
-            ? h.empty
-            : h.div(
-                [h.Class("options")],
-                (result?.candidates ?? []).map((candidate, index) =>
-                  optionRow(model, h, candidate, index),
-                ),
-              ),
-          blocked.length === 0 ? h.empty : h.h3([], ["Blocked alternatives"]),
-          blocked.length === 0
-            ? h.empty
-            : h.div(
-                [h.Class("options")],
-                blocked.map((candidate) => optionRow(model, h, candidate, null)),
-              ),
-          result === null || (result.candidates.length === 0 && blocked.length === 0)
-            ? h.div(
-                [h.Class("empty")],
-                [
-                  h.p(
-                    [],
-                    [
-                      result === null
-                        ? "Resolve an audience, then search to see ranked times"
-                        : "No interval in this window meets the rules",
-                    ],
-                  ),
-                ],
-              )
-            : h.empty,
-        ],
-      ),
-      result === null
-        ? h.empty
-        : h.p(
-            [h.Class("meta result-foot")],
-            [
-              `Searched ${formatInstant(result.searchedAt, model.timeZone)}`,
-              ...(result.calendarsWithErrors.length > 0
-                ? [
-                    ` · Calendar data unavailable for ${result.calendarsWithErrors.map((entry) => entry.calendarId).join(", ")}`,
-                  ]
-                : []),
-            ],
-          ),
+      h.div([h.Class("results-scroll")], resultOptions(model, h)),
+      result === null ? h.empty : resultFoot(h, result, model.timeZone),
     ],
   );
 };
