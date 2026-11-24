@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v3.45.0/schema.json",
   "minimumVersion": "3.45.0",
   "failOnParseError": true,
+  "entry": ["site/index.html"],
   "rulePacks": [".fallow-policy.json"],
   "rules": {
     "boundary-violation": "error",
