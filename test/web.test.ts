@@ -1,10 +1,21 @@
+import { Scene } from "foldkit/test";
 import { describe, expect, it } from "vitest";
 import type {
   MeetingCandidate,
   ResolvedSearchAudience,
   ResolvedParticipant,
 } from "../src/contracts.js";
-import { Message, initial, isLoading, update, type Model } from "../web/app.js";
+import {
+  Config,
+  Message,
+  Resolve,
+  Search,
+  initial,
+  isLoading,
+  update,
+  type Model,
+} from "../web/app.js";
+import { view } from "../web/view.js";
 
 const commandNamed = (
   commands:
@@ -65,6 +76,110 @@ const audience: ResolvedSearchAudience = {
   optionalCount: 0,
   overrides: [],
 };
+
+describe("web audience and results views", () => {
+  it("filters by accent-insensitive name and still applies bulk changes to everyone", () => {
+    const cancelled = Message.Cancelled();
+    const resolveInterrupts = Scene.Command.resolveAllExact(
+      [Config.Interrupt(() => cancelled), cancelled],
+      [Resolve.Interrupt(() => cancelled), cancelled],
+      [Search.Interrupt(() => cancelled), cancelled],
+    );
+    Scene.scene(
+      { update, view },
+      Scene.given({
+        ...initial,
+        people: [person("hidden@example.test"), { ...person("jose@example.test"), name: "José" }],
+      }),
+      Scene.type(Scene.label("Filter people"), "JOSE"),
+      Scene.expect(Scene.text("Person · 1 of 2")).toExist(),
+      Scene.expect(Scene.label("hidden@example.test is required")).toBeAbsent(),
+      Scene.expect(Scene.label("José is required")).toBeChecked(),
+      Scene.expect(Scene.selector("details.working-rules")).not.toHaveAttr("open"),
+      Scene.click(Scene.role("button", { name: "All optional" })),
+      resolveInterrupts,
+      Scene.expect(Scene.text("2 people · 0 required · 2 optional")).toExist(),
+      Scene.click(Scene.role("button", { name: "Remove José" })),
+      resolveInterrupts,
+      Scene.expect(Scene.text("No one matches this filter")).toExist(),
+      Scene.type(Scene.label("Filter people"), "HIDDEN@"),
+      Scene.expect(Scene.label("hidden@example.test is required")).not.toBeChecked(),
+    );
+  });
+
+  it("distinguishes an unsearched audience, an empty search, and a valid proposal", () => {
+    const model = { ...initial, people: [person("p1@example.test")] };
+    const result = {
+      audience,
+      timeZone: "UTC",
+      searchedAt: "2030-01-07T00:00:00Z",
+      candidates: [],
+      blockedAlternatives: [],
+      evaluatedCount: 1,
+      validCount: 0,
+      calendarsWithErrors: [],
+    };
+    Scene.scene(
+      { update, view },
+      Scene.given(model),
+      Scene.expect(Scene.text("Resolve an audience, then search to see ranked times")).toExist(),
+      Scene.given({ ...model, searchResult: result }),
+      Scene.expect(Scene.text("No interval in this window meets the rules")).toExist(),
+      Scene.given({
+        ...model,
+        searchResult: { ...result, candidates: [candidate], validCount: 1 },
+      }),
+      Scene.expect(Scene.role("button", { name: "Copy proposal" })).toExist(),
+      Scene.expect(Scene.text("No interval in this window meets the rules")).toBeAbsent(),
+    );
+  });
+
+  it("shows blocked alternatives collapsed and never offers to copy them", () => {
+    const required = { ...person("p1@example.test"), name: "Organizer" };
+    const optional = person("p2@example.test", false);
+    const blocked: MeetingCandidate = {
+      ...candidate,
+      score: 50,
+      totalWeight: 2,
+      requiredConflicts: [required.id],
+      participants: candidate.participants.flatMap((observation) => [
+        { ...observation, participantId: optional.id },
+        {
+          ...observation,
+          state: "busy",
+          ruleSatisfied: false,
+          availableIntervals: [],
+          availableMinutes: 0,
+          longestAvailableMinutes: 0,
+          longestAvailablePercentage: 0,
+        },
+      ]),
+    };
+    Scene.scene(
+      { update, view },
+      Scene.given({
+        ...initial,
+        people: [required, optional],
+        searchResult: {
+          audience,
+          timeZone: "UTC",
+          searchedAt: "2030-01-07T00:00:00Z",
+          candidates: [],
+          blockedAlternatives: Array.from({ length: 6 }, () => blocked),
+          evaluatedCount: 6,
+          validCount: 0,
+          calendarsWithErrors: [],
+        },
+      }),
+      Scene.expect(Scene.role("heading", { name: "Blocked alternatives" })).toExist(),
+      Scene.expectAll(Scene.all.text("Blocked by Organizer")).toHaveCount(5),
+      Scene.expectAll(Scene.all.selector("details.option")).toHaveCount(5),
+      Scene.expectAll(Scene.all.selector("details.option[open]")).toBeEmpty(),
+      Scene.expectAll(Scene.all.role("button", { name: "Copy proposal" })).toBeEmpty(),
+      Scene.expect(Scene.text("No interval in this window meets the rules")).toBeAbsent(),
+    );
+  });
+});
 
 describe("web update contract", () => {
   it("interrupts config and in-flight requests when an edit invalidates them", () => {
