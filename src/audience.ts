@@ -1,19 +1,30 @@
 import { Effect } from "effect";
-import { type RequestInput, type SourceInput } from "./domain/request.js";
-import { type ResolvedAudience, type SourceResolution } from "./domain/audience.js";
-import { type ResolvedParticipant } from "./domain/participant.js";
-import type {
-  DirectoryMember,
-  DirectoryResult,
-  ExternalSource,
-  OmittedMember,
-} from "./domain/directory.js";
+import type { RequestInput, SourceInput } from "./domain/request.js";
+import type { ResolvedAudience, SourceResolution } from "./domain/audience.js";
+import {
+  defaultTimeZone,
+  defaultWorkingHours,
+  type OverrideInput,
+  type ParticipantInput,
+  type ResolvedParticipant,
+} from "./domain/participant.js";
+import type { DirectoryMember, DirectoryResult } from "./domain/directory.js";
 import { inputError, type FinderError } from "./errors.js";
 import { Directory } from "./providers.js";
 
-import { defaultTimeZone, defaultWorkingHours } from "./domain/participant.js";
-
 const normalizeId = (id: string) => id.trim().toLowerCase();
+const isPrimary = (id: string) => normalizeId(id) === "primary";
+type PrimaryLookup = Effect.Effect<string, FinderError>;
+
+const canonicalId = (normalized: string, primary?: string) =>
+  normalized === "primary" && primary ? primary : normalized;
+
+const resolveParticipantId = (input: string, primary: PrimaryLookup) => {
+  const id = normalizeId(input);
+  return id === "primary"
+    ? Effect.map(primary, (primaryId) => canonicalId(id, primaryId))
+    : Effect.succeed(id);
+};
 
 // Calendar email identities are case-insensitive; provider resource names are opaque.
 const normalizeCalendarId = (id: string, primary?: string) => {
@@ -66,47 +77,37 @@ const validateGroupAliases = (
   return Effect.void;
 };
 
-const sourceExpansion = (
+const acquireSource = (
   source: SourceInput,
-):
-  | { readonly kind: "local"; readonly members: ReadonlyArray<DirectoryMember> }
-  | { readonly kind: "external"; readonly source: ExternalSource } => {
+  directory: Directory["Service"],
+  aliases: Readonly<Record<string, string>>,
+): Effect.Effect<DirectoryResult, FinderError> => {
   switch (source.type) {
     case "person":
-      return { kind: "local", members: [{ id: source.ref }] };
+      return Effect.succeed({ members: [{ id: source.ref }], omitted: [] });
     case "emails":
-      return {
-        kind: "local",
+      return Effect.succeed({
         members: source.ref
           .split(/[;,\s]+/u)
           .filter(Boolean)
           .map((id) => ({ id })),
-      };
+        omitted: [],
+      });
     case "chat_space":
     case "google_group":
     case "contact_group":
-      return { kind: "external", source: { type: source.type, ref: source.ref } };
+      return directory.expand({ type: source.type, ref: source.ref }, aliases);
   }
 };
 
-const normalizeMember = (member: DirectoryMember, primary?: string) => {
-  const id = normalizeId(member.id) === "primary" && primary ? primary : normalizeId(member.id);
-  return { id, ...(member.name === undefined ? {} : { name: member.name }) };
-};
-
-const sourcePolicy = (source: SourceInput) => ({
-  required: source.required ?? true,
-  weight: source.weight ?? 1,
-});
-
 const sourceResolution = (
   source: SourceInput,
-  members: ReadonlyArray<DirectoryMember>,
-  omitted: ReadonlyArray<OmittedMember> = [],
+  { members, omitted }: DirectoryResult,
+  primary?: string,
 ): SourceResolution => ({
   source,
   members: members.map((member) => ({
-    id: member.id,
+    id: canonicalId(normalizeId(member.id), primary),
     ...(member.name === undefined ? {} : { name: member.name }),
   })),
   omitted: omitted.map((entry) => ({
@@ -114,6 +115,26 @@ const sourceResolution = (
     reason: entry.reason,
   })),
 });
+
+const resolveSource = (
+  source: SourceInput,
+  directory: Directory["Service"],
+  aliases: Readonly<Record<string, string>>,
+  primary: PrimaryLookup,
+) =>
+  Effect.gen(function* () {
+    const expanded = yield* acquireSource(source, directory, aliases);
+    if (expanded.members.length === 0) {
+      return yield* inputError(
+        `Source produced no members: ${source.ref}`,
+        "Choose a non-empty accessible source",
+      );
+    }
+    const primaryId = expanded.members.some((member) => isPrimary(member.id))
+      ? yield* primary
+      : undefined;
+    return sourceResolution(source, expanded, primaryId);
+  });
 
 const makeParticipant = (
   member: DirectoryMember,
@@ -133,6 +154,58 @@ const makeParticipant = (
   memberships: [...memberships],
 });
 
+const mergeSource = (
+  participants: Map<string, ResolvedParticipant>,
+  { source, members }: SourceResolution,
+  defaults: RequestInput["participantDefaults"],
+) => {
+  const required = source.required ?? true;
+  const weight = source.weight ?? 1;
+  for (const member of members) {
+    const current = participants.get(member.id);
+    const next =
+      current === undefined
+        ? makeParticipant(member, required, weight, defaults, [source.ref])
+        : {
+            ...current,
+            ...(member.name === undefined ? {} : { name: member.name }),
+            required,
+            weight,
+            memberships: [...current.memberships, source.ref],
+          };
+    participants.set(member.id, next);
+  }
+};
+
+const applyParticipantPolicy = (
+  participant: ResolvedParticipant,
+  {
+    required,
+    weight,
+    attendanceRule,
+  }: Pick<OverrideInput, "required" | "weight" | "attendanceRule">,
+): ResolvedParticipant => ({
+  ...participant,
+  required: required ?? participant.required,
+  weight: weight ?? participant.weight,
+  attendanceRule: attendanceRule ?? participant.attendanceRule,
+});
+
+const applyExplicitParticipant = (
+  base: ResolvedParticipant,
+  explicit: ParticipantInput,
+  calendarPrimary: string | undefined,
+): ResolvedParticipant => ({
+  ...applyParticipantPolicy(base, explicit),
+  ...(explicit.name === undefined ? {} : { name: explicit.name }),
+  timeZone: explicit.timeZone ?? base.timeZone,
+  workingHours: explicit.workingHours ?? base.workingHours,
+  calendarIds:
+    explicit.calendarIds === undefined
+      ? base.calendarIds
+      : normalizeCalendarIds(explicit.calendarIds, calendarPrimary),
+});
+
 export const resolveAudience = <R extends RequestInput>(
   input: R,
 ): Effect.Effect<ResolvedAudience & { readonly request: R }, FinderError, Directory> =>
@@ -145,124 +218,44 @@ export const resolveAudience = <R extends RequestInput>(
         : { groupAliases: normalizeGroupAliases(input.groupAliases) }),
     };
     const directory = yield* Directory;
-    let primary: string | undefined;
-    const ensurePrimary = () =>
-      Effect.gen(function* () {
-        if (primary === undefined) primary = normalizeId(yield* directory.primary);
-        return primary;
-      });
-    const sources = request.sources ?? [];
+    const primary = yield* Effect.cached(Effect.map(directory.primary, normalizeId));
+    const aliases = request.groupAliases ?? {};
+    const defaults = request.participantDefaults;
     const sourceResults: SourceResolution[] = [];
     const participants = new Map<string, ResolvedParticipant>();
 
-    for (const source of sources) {
-      const expansion = sourceExpansion(source);
-      const expanded: DirectoryResult =
-        expansion.kind === "local"
-          ? { members: expansion.members, omitted: [] }
-          : yield* directory.expand(expansion.source, request.groupAliases ?? {});
-      const rawMembers = expanded.members;
-      if (rawMembers.some((member) => normalizeId(member.id) === "primary")) yield* ensurePrimary();
-      const members = rawMembers.map((member) => normalizeMember(member, primary));
-      const omitted = expanded.omitted;
-      if (members.length === 0) {
-        return yield* inputError(
-          `Source produced no members: ${source.ref}`,
-          "Choose a non-empty accessible source",
-        );
-      }
-      sourceResults.push(sourceResolution(source, members, omitted));
-      const policy = sourcePolicy(source);
-      for (const member of members) {
-        const key = normalizeId(member.id);
-        const current = participants.get(key);
-        if (current === undefined) {
-          participants.set(
-            key,
-            makeParticipant(member, policy.required, policy.weight, request.participantDefaults, [
-              source.ref,
-            ]),
-          );
-        } else {
-          participants.set(key, {
-            ...current,
-            ...(member.name === undefined ? {} : { name: member.name }),
-            required: policy.required,
-            weight: policy.weight,
-            memberships: [...current.memberships, source.ref],
-          });
-        }
-      }
+    for (const source of request.sources ?? []) {
+      const resolution = yield* resolveSource(source, directory, aliases, primary);
+      sourceResults.push(resolution);
+      mergeSource(participants, resolution, defaults);
     }
 
     const explicitSeen = new Set<string>();
-    for (const inputParticipant of request.participants ?? []) {
-      if (normalizeId(inputParticipant.id) === "primary") yield* ensurePrimary();
-      const normalizedId =
-        normalizeId(inputParticipant.id) === "primary" && primary
-          ? primary
-          : normalizeId(inputParticipant.id);
-      const key = normalizeId(normalizedId);
-      if (explicitSeen.has(key)) {
+    for (const explicit of request.participants ?? []) {
+      const id = yield* resolveParticipantId(explicit.id, primary);
+      if (explicitSeen.has(id)) {
         return yield* inputError(
-          `Duplicate explicit participant: ${inputParticipant.id}`,
+          `Duplicate explicit participant: ${explicit.id}`,
           "Remove the duplicate participant",
         );
       }
-      explicitSeen.add(key);
-      const current = participants.get(key);
-      const base =
-        current ??
-        makeParticipant(
-          {
-            id: normalizedId,
-            ...(inputParticipant.name === undefined ? {} : { name: inputParticipant.name }),
-          },
-          true,
-          1,
-          request.participantDefaults,
-          [],
-        );
-      const explicit = inputParticipant;
-      if (explicit.calendarIds?.some((id) => normalizeId(id) === "primary")) yield* ensurePrimary();
-      const calendarIds =
-        explicit.calendarIds === undefined
-          ? base.calendarIds
-          : normalizeCalendarIds(explicit.calendarIds, primary);
-      participants.set(key, {
-        ...base,
-        id: normalizedId,
-        ...(explicit.name === undefined ? {} : { name: explicit.name }),
-        ...(explicit.required === undefined ? {} : { required: explicit.required }),
-        ...(explicit.attendanceRule === undefined
-          ? {}
-          : { attendanceRule: explicit.attendanceRule }),
-        ...(explicit.weight === undefined ? {} : { weight: explicit.weight }),
-        ...(explicit.timeZone === undefined ? {} : { timeZone: explicit.timeZone }),
-        ...(explicit.workingHours === undefined ? {} : { workingHours: explicit.workingHours }),
-        calendarIds,
-      });
+      explicitSeen.add(id);
+      const calendarPrimary = explicit.calendarIds?.some(isPrimary) ? yield* primary : undefined;
+      const base = participants.get(id) ?? makeParticipant({ id }, true, 1, defaults, []);
+      participants.set(id, applyExplicitParticipant(base, explicit, calendarPrimary));
     }
 
-    for (const override of request.overrides ?? []) {
-      if (normalizeId(override.id) === "primary") yield* ensurePrimary();
-      const key =
-        normalizeId(override.id) === "primary" && primary ? primary : normalizeId(override.id);
-      const current = participants.get(key);
+    const overrides = request.overrides ?? [];
+    for (const override of overrides) {
+      const id = yield* resolveParticipantId(override.id, primary);
+      const current = participants.get(id);
       if (current === undefined) {
         return yield* inputError(
           `Override does not match audience: ${override.id}`,
           "Use an existing participant id",
         );
       }
-      participants.set(key, {
-        ...current,
-        ...(override.required === undefined ? {} : { required: override.required }),
-        ...(override.attendanceRule === undefined
-          ? {}
-          : { attendanceRule: override.attendanceRule }),
-        ...(override.weight === undefined ? {} : { weight: override.weight }),
-      });
+      participants.set(id, applyParticipantPolicy(current, override));
     }
 
     const result = [...participants.values()];
@@ -272,13 +265,14 @@ export const resolveAudience = <R extends RequestInput>(
         "Adjust sources or participants",
       );
     }
+    const requiredCount = result.filter((participant) => participant.required).length;
     return {
       request,
       participants: result,
       sources: sourceResults,
       total: result.length,
-      requiredCount: result.filter((participant) => participant.required).length,
-      optionalCount: result.filter((participant) => !participant.required).length,
-      overrides: request.overrides ?? [],
+      requiredCount,
+      optionalCount: result.length - requiredCount,
+      overrides,
     };
   });

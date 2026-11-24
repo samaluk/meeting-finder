@@ -97,21 +97,31 @@ describe("MeetingFinder.resolve", () => {
     });
   });
 
-  it("canonicalizes the primary identity before deduplication and overrides", async () => {
-    const primaryDirectory = {
+  it("reuses one primary lookup across sources, explicit calendars, and overrides", async () => {
+    let primaryCalls = 0;
+    const primaryDirectory: Directory["Service"] = {
       ...directory(),
-      primary: Effect.succeed("Organizer@Example.test"),
-    } as Directory["Service"];
+      primary: Effect.sync(() => {
+        primaryCalls++;
+        return "Organizer@Example.test";
+      }),
+    };
     const result = await Effect.runPromise(
       MeetingFinder.resolve({
-        sources: [{ type: "person", ref: "primary" }],
-        participants: [{ id: "organizer@example.test" }],
-        overrides: [{ id: "organizer@example.test", required: false, weight: 9 }],
+        sources: [
+          { type: "person", ref: "primary" },
+          { type: "person", ref: "organizer@example.test" },
+        ],
+        participants: [{ id: "PRIMARY", calendarIds: ["primary", "shared@example.test"] }],
+        overrides: [{ id: "primary", required: false, weight: 9 }],
       }).pipe(Effect.provideService(Directory, primaryDirectory)),
     );
+    expect(primaryCalls).toBe(1);
     expect(result.total).toBe(1);
     expect(result.participants[0]).toMatchObject({
       id: "organizer@example.test",
+      calendarIds: ["organizer@example.test", "shared@example.test"],
+      memberships: ["primary", "organizer@example.test"],
       required: false,
       weight: 9,
     });
@@ -234,6 +244,20 @@ describe("MeetingFinder.resolve", () => {
       overrides: [{ id: "missing@example.test", required: true }],
     }).pipe(Effect.provideService(Directory, directory()));
     await expect(Effect.runPromise(unmatched)).rejects.toMatchObject({ code: "invalid_input" });
+  });
+
+  it("rejects a duplicate explicit participant before looking up its calendar alias", async () => {
+    const primaryUnavailable: Directory["Service"] = {
+      ...directory(),
+      primary: Effect.fail(providerUnavailable("primary unavailable", "Retry provider")),
+    };
+    const request = MeetingFinder.resolve({
+      participants: [{ id: "a@example.test" }, { id: "A@example.test", calendarIds: ["primary"] }],
+    }).pipe(Effect.provideService(Directory, primaryUnavailable));
+    await expect(Effect.runPromise(request)).rejects.toMatchObject({
+      code: "invalid_input",
+      detail: "Duplicate explicit participant: A@example.test",
+    });
   });
 
   it("allows an all-optional resolved audience and applies defaults only when fields are absent", async () => {
