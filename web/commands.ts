@@ -9,7 +9,7 @@ import {
 } from "../src/api.js";
 import { RequestInputSchema, SearchInputSchema } from "../src/domain/request.js";
 import { issuesFromSchemaError } from "../src/errors.js";
-import { Message } from "./model.js";
+import { Message, type RequestToken } from "./model.js";
 
 const httpClient = Effect.suspend(() =>
   HttpApiClient.make(MeetingFinderApi, {
@@ -60,6 +60,11 @@ export const formatHttpError = (error: unknown): string => {
 const clientRequest = <A>(
   operation: (client: MeetingFinderApiClient) => Effect.Effect<A, never, never>,
 ) => Effect.flatMap(httpClient, operation);
+const withRequestFailure = (token: RequestToken) =>
+  Effect.catch((error: unknown) =>
+    Effect.succeed(Message.Failed({ ...token, error: formatHttpError(error) })),
+  );
+
 export const Resolve = Command.define("Resolve", {
   args: {
     mode: ModeSchema,
@@ -76,11 +81,7 @@ export const Resolve = Command.define("Resolve", {
         Effect.map(({ participants }) =>
           Message.Resolved({ people: participants, revision, operation }),
         ),
-        Effect.match({
-          onFailure: (error) =>
-            Message.Failed({ error: formatHttpError(error), revision, operation }),
-          onSuccess: (message) => message,
-        }),
+        withRequestFailure({ revision, operation }),
       ),
     ),
 });
@@ -98,11 +99,7 @@ export const Search = Command.define("Search", {
       Schema.decodeUnknownEffect(SearchInputSchema)(body).pipe(
         Effect.flatMap((request) => client.meeting.search({ payload: { mode, request } })),
         Effect.map((result) => Message.ReceivedSearch({ result, revision, operation })),
-        Effect.match({
-          onFailure: (error) =>
-            Message.Failed({ error: formatHttpError(error), revision, operation }),
-          onSuccess: (message) => message,
-        }),
+        withRequestFailure({ revision, operation }),
       ),
     ),
 });
@@ -113,12 +110,10 @@ export const Config = Command.define("Config", {
   execute: ({ revision, operation }) =>
     clientRequest((client) =>
       client.meeting.config({ query: {} }).pipe(
-        Effect.match({
-          onSuccess: ({ request: config, mode }) =>
-            Message.Configured({ config, mode, revision, operation }),
-          onFailure: (error) =>
-            Message.Failed({ error: formatHttpError(error), revision, operation }),
-        }),
+        Effect.map(({ request: config, mode }) =>
+          Message.Configured({ config, mode, revision, operation }),
+        ),
+        withRequestFailure({ revision, operation }),
       ),
     ),
 });

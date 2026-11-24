@@ -59,11 +59,14 @@ it.effect("reports schema paths before sending an invalid resolve draft", () =>
         ],
       },
       revision: 1,
-      operation: 1,
+      operation: 2,
     }).effect;
     expect(result._tag).toBe("Failed");
-    if (result._tag === "Failed")
-      expect(result.error).toContain("participants[0].attendanceRule.percent");
+    expect(result).toMatchObject({
+      revision: 1,
+      operation: 2,
+      error: expect.stringContaining("participants[0].attendanceRule.percent"),
+    });
   }),
 );
 
@@ -160,12 +163,14 @@ it.effect(
       const command = started.commands!.find((command) => command.name === "Search")!;
       const result = yield* command.effect;
       expect(result._tag).toBe("Failed");
-      if (result._tag === "Failed") {
-        expect(result.error).toContain("startDate");
-        const settled = update(started.model, result);
-        expect(settled.model.error).toContain("startDate");
-        expect(settled.model.request._tag).toBe("Idle");
-      }
+      expect(result).toMatchObject({
+        revision: started.model.revision,
+        operation: started.model.operation,
+        error: expect.stringContaining("startDate"),
+      });
+      const settled = update(started.model, result);
+      expect(settled.model.error).toContain("startDate");
+      expect(settled.model.request._tag).toBe("Idle");
     }),
 );
 
